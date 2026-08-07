@@ -46,6 +46,16 @@ local function tween(inst, props, time, style, dir)
 	return t
 end
 
+-- Runs a user-supplied callback in pcall so a bug in their code doesn't
+-- silently break the element's event connection for the rest of the session.
+local function safeCall(fn, ...)
+	if not fn then return end
+	local ok, err = pcall(fn, ...)
+	if not ok then
+		warn("[RectUI] callback error: " .. tostring(err))
+	end
+end
+
 local function makeDraggable(handle, target)
 	local dragging, dragInput, dragStart, startPos
 
@@ -111,6 +121,101 @@ function UI:CreateWindow(config)
 		if Window.Gui then
 			Window.Gui:Destroy()
 		end
+	end
+
+	-- Floating "active keybinds" panel: dark rounded box, small uppercase header,
+	-- rows of "Name ......... KEY" that any keybind can register itself into.
+	function Window:CreateKeybindList(title)
+		local List = {}
+		List.Rows = {}
+
+		local Panel = new("Frame", {
+			Name = "KeybindList",
+			Size = UDim2.new(0, 220, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			Position = UDim2.new(0, 20, 0.5, -20),
+			AnchorPoint = Vector2.new(0, 0.5),
+			BackgroundColor3 = Theme.Section,
+			BorderSizePixel = 0,
+			Parent = Window.Gui,
+		})
+		new("UIStroke", { Color = Theme.Border, Thickness = 1, Parent = Panel })
+		new("UIPadding", {
+			PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12),
+			PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10),
+			Parent = Panel,
+		})
+		local Layout = new("UIListLayout", {
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 8),
+			Parent = Panel,
+		})
+
+		new("TextLabel", {
+			Name = "Header",
+			Size = UDim2.new(1, 0, 0, 12),
+			BackgroundTransparency = 1,
+			Text = string.upper(title or "Keybinds"),
+			TextColor3 = Theme.TextDim,
+			TextSize = 11,
+			Font = Enum.Font.GothamBold,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			LayoutOrder = 0,
+			Parent = Panel,
+		})
+
+		makeDraggable(Panel, Panel)
+
+		function List:Add(name, keyText)
+			local Row = new("Frame", {
+				Size = UDim2.new(1, 0, 0, 18),
+				BackgroundTransparency = 1,
+				LayoutOrder = #List.Rows + 1,
+				Parent = Panel,
+			})
+			new("TextLabel", {
+				Size = UDim2.new(1, -70, 1, 0),
+				BackgroundTransparency = 1,
+				Text = name,
+				TextColor3 = Theme.Text,
+				TextSize = 13,
+				Font = Enum.Font.Gotham,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Parent = Row,
+			})
+			local Pill = new("Frame", {
+				Size = UDim2.new(0, 60, 0, 18),
+				Position = UDim2.new(1, -60, 0, 0),
+				BackgroundColor3 = Theme.Element,
+				BorderSizePixel = 0,
+				Parent = Row,
+			})
+			local KeyLabel = new("TextLabel", {
+				Size = UDim2.new(1, 0, 1, 0),
+				BackgroundTransparency = 1,
+				Text = keyText or "None",
+				TextColor3 = Theme.TextDim,
+				TextSize = 12,
+				Font = Enum.Font.Gotham,
+				TextXAlignment = Enum.TextXAlignment.Center,
+				Parent = Pill,
+			})
+
+			local handle = {
+				Set = function(_, newKeyText)
+					KeyLabel.Text = newKeyText
+				end,
+			}
+			table.insert(List.Rows, handle)
+			return handle
+		end
+
+		function List:SetVisible(bool)
+			Panel.Visible = bool
+		end
+
+		Window.KeybindList = List
+		return List
 	end
 
 	function Window:SaveConfig(name)
@@ -571,7 +676,7 @@ function UI:CreateWindow(config)
 				Track.MouseButton1Click:Connect(function()
 					state = not state
 					render()
-					callback(state)
+					safeCall(callback, state)
 				end)
 
 				registerAccentRefresher(function() render() end)
@@ -580,7 +685,7 @@ function UI:CreateWindow(config)
 					Set = function(_, v)
 						state = v
 						render()
-						callback(state)
+						safeCall(callback, state)
 					end,
 					Get = function() return state end,
 				}
@@ -658,7 +763,7 @@ function UI:CreateWindow(config)
 					Fill.Size = UDim2.new(realAlpha, 0, 1, 0)
 					Knob.Position = UDim2.new(realAlpha, -6, 0.5, -6)
 					ValueLabel.Text = step < 1 and string.format("%.2f", value) or tostring(value)
-					callback(value)
+					safeCall(callback, value)
 				end
 
 				Track.InputBegan:Connect(function(input)
@@ -772,7 +877,7 @@ function UI:CreateWindow(config)
 						Box.Text = "  " .. tostring(opt)
 						open = false
 						tween(ListHolder, { Size = UDim2.new(0, 140, 0, 0) }, 0.12)
-						callback(opt)
+						safeCall(callback, opt)
 					end)
 				end
 
@@ -811,7 +916,7 @@ function UI:CreateWindow(config)
 					Set = function(_, v)
 						selected = v
 						Box.Text = "  " .. tostring(v)
-						callback(v)
+						safeCall(callback, v)
 					end,
 					Get = function() return selected end,
 				}
@@ -845,7 +950,7 @@ function UI:CreateWindow(config)
 					tween(Btn, { BackgroundColor3 = Theme.Accent }, 0.1)
 				end)
 				Btn.MouseButton1Click:Connect(function()
-					callback()
+					safeCall(callback)
 				end)
 
 				registerAccentRefresher(function() Btn.BackgroundColor3 = Theme.Accent end)
@@ -889,6 +994,8 @@ function UI:CreateWindow(config)
 					Parent = Row,
 				})
 
+				local ListRow = Window.KeybindList and Window.KeybindList:Add(text, bindingKey.Name) or nil
+
 				KeyBox.MouseButton1Click:Connect(function()
 					listening = true
 					KeyBox.Text = "..."
@@ -898,10 +1005,11 @@ function UI:CreateWindow(config)
 					if listening and input.UserInputType == Enum.UserInputType.Keyboard then
 						bindingKey = input.KeyCode
 						KeyBox.Text = bindingKey.Name
+						if ListRow then ListRow:Set(bindingKey.Name) end
 						listening = false
-						callback(bindingKey)
+						safeCall(callback, bindingKey)
 					elseif not gpe and input.KeyCode == bindingKey and not listening then
-						callback(bindingKey)
+						safeCall(callback, bindingKey)
 					end
 				end)
 
@@ -910,6 +1018,7 @@ function UI:CreateWindow(config)
 						-- accepts either an Enum.KeyCode or its name as a string (config files store strings)
 						bindingKey = typeof(key) == "string" and Enum.KeyCode[key] or key
 						KeyBox.Text = bindingKey.Name
+						if ListRow then ListRow:Set(bindingKey.Name) end
 					end,
 					Get = function() return bindingKey.Name end, -- string so it's JSON-safe for SaveConfig
 				}
