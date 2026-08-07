@@ -151,12 +151,12 @@ do
         local Notif = Library:Create("Frame", {
             Parent = NotifHolder,
             Size = UDim2.new(1, 0, 0, 60),
-            BackgroundColor3 = self.Theme.Background,
-            BackgroundTransparency = self.Theme.Transparency,
+            BackgroundColor3 = Library.Theme.Background,
+            BackgroundTransparency = Library.Theme.Transparency,
             BorderSizePixel = 0
         })
         Library:Create("UICorner", {Parent = Notif, CornerRadius = UDim.new(0, 6)})
-        Library:Create("UIStroke", {Parent = Notif, Color = self.Theme.Accent, Transparency = 0.5})
+        Library:Create("UIStroke", {Parent = Notif, Color = Library.Theme.Accent, Transparency = 0.5})
 
         Library:Create("TextLabel", {
             Parent = Notif,
@@ -165,7 +165,7 @@ do
             BackgroundTransparency = 1,
             Font = Enum.Font.GothamBold,
             Text = Title,
-            TextColor3 = self.Theme.Text,
+            TextColor3 = Library.Theme.Text,
             TextSize = 14,
             TextXAlignment = Enum.TextXAlignment.Left
         })
@@ -176,7 +176,7 @@ do
             BackgroundTransparency = 1,
             Font = Enum.Font.Gotham,
             Text = Desc,
-            TextColor3 = self.Theme.Text,
+            TextColor3 = Library.Theme.Text,
             TextTransparency = 0.3,
             TextSize = 13,
             TextXAlignment = Enum.TextXAlignment.Left
@@ -202,8 +202,8 @@ do
             Parent = self.Gui,
             Size = UDim2.new(0, 650, 0, 450),
             Position = UDim2.new(0.5, -325, 0.5, -225),
-            BackgroundColor3 = self.Theme.Background,
-            BackgroundTransparency = self.Theme.Transparency, -- Half transparent
+            BackgroundColor3 = Library.Theme.Background,
+            BackgroundTransparency = Library.Theme.Transparency, -- Half transparent
             BorderSizePixel = 0,
             Visible = false,
             ClipsDescendants = true
@@ -215,15 +215,15 @@ do
         local TopBar = Library:Create("Frame", {
             Parent = Main,
             Size = UDim2.new(1, 0, 0, 40),
-            BackgroundColor3 = self.Theme.Sidebar,
-            BackgroundTransparency = self.Theme.Transparency,
+            BackgroundColor3 = Library.Theme.Sidebar,
+            BackgroundTransparency = Library.Theme.Transparency,
             BorderSizePixel = 0
         })
         Library:Create("Frame", {
             Parent = TopBar,
             Size = UDim2.new(1, 0, 0, 1),
             Position = UDim2.new(0, 0, 1, -1),
-            BackgroundColor3 = self.Theme.Accent,
+            BackgroundColor3 = Library.Theme.Accent,
             BorderSizePixel = 0
         })
 
@@ -234,7 +234,7 @@ do
             BackgroundTransparency = 1,
             Font = Enum.Font.GothamBold,
             Text = Data.Title or "Merged UI",
-            TextColor3 = self.Theme.Text,
+            TextColor3 = Library.Theme.Text,
             TextSize = 16,
             TextXAlignment = Enum.TextXAlignment.Left
         })
@@ -243,8 +243,8 @@ do
             Parent = Main,
             Size = UDim2.new(0, 150, 1, -40),
             Position = UDim2.new(0, 0, 0, 40),
-            BackgroundColor3 = self.Theme.Sidebar,
-            BackgroundTransparency = self.Theme.Transparency,
+            BackgroundColor3 = Library.Theme.Sidebar,
+            BackgroundTransparency = Library.Theme.Transparency,
             BorderSizePixel = 0
         })
         local TabList = Library:Create("UIListLayout", {Parent = SideBar, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder})
@@ -269,7 +269,7 @@ do
             local TabBtn = Library:Create("TextButton", {
                 Parent = SideBar,
                 Size = UDim2.new(1, 0, 0, 35),
-                BackgroundColor3 = self.Theme.Element,
+                BackgroundColor3 = Library.Theme.Element,
                 BackgroundTransparency = 0.5,
                 Text = "",
                 AutoButtonColor = false,
@@ -282,7 +282,7 @@ do
                 BackgroundTransparency = 1,
                 Font = Enum.Font.GothamSemibold,
                 Text = TabData.Name or "Tab",
-                TextColor3 = self.Theme.Text,
+                TextColor3 = Library.Theme.Text,
                 TextSize = 14
             })
 
@@ -293,7 +293,7 @@ do
                 BackgroundTransparency = 1,
                 BorderSizePixel = 0,
                 ScrollBarThickness = 4,
-                ScrollBarImageColor3 = self.Theme.Accent,
+                ScrollBarImageColor3 = Library.Theme.Accent,
                 CanvasSize = UDim2.new(0, 0, 0, 0),
                 AutomaticCanvasSize = Enum.AutomaticSize.Y,
                 Visible = false
@@ -304,10 +304,10 @@ do
             TabBtn.MouseButton1Click:Connect(function()
                 for _, t in pairs(Window.Tabs) do
                     t.Page.Visible = false
-                    Library:Tween(t.Btn, 0.2, {BackgroundColor3 = self.Theme.Element})
+                    Library:Tween(t.Btn, 0.2, {BackgroundColor3 = Library.Theme.Element})
                 end
                 Page.Visible = true
-                Library:Tween(TabBtn, 0.2, {BackgroundColor3 = self.Theme.Accent})
+                Library:Tween(TabBtn, 0.2, {BackgroundColor3 = Library.Theme.Accent})
             end)
 
             function Tab:Section(SecData)
@@ -316,8 +316,8 @@ do
                 local SecFrame = Library:Create("Frame", {
                     Parent = Page,
                     Size = UDim2.new(1, 0, 0, 0),
-                    BackgroundColor3 = self.Theme.Sidebar,
-                    BackgroundTransparency = self.Theme.Transparency,
+                    BackgroundColor3 = Library.Theme.Sidebar,
+                    BackgroundTransparency = Library.Theme.Transparency,
                     BorderSizePixel = 0,
                     AutomaticSize = Enum.AutomaticSize.Y
                 })
@@ -333,7 +333,7 @@ do
                     BackgroundTransparency = 1,
                     Font = Enum.Font.GothamBold,
                     Text = SecData.Name or "Section",
-                    TextColor3 = self.Theme.Accent,
+                    TextColor3 = Library.Theme.Accent,
                     TextSize = 14,
                     TextXAlignment = Enum.TextXAlignment.Left
                 })
@@ -349,7 +349,7 @@ do
                     local TFrame = Library:Create("TextButton", {
                         Parent = SecFrame,
                         Size = UDim2.new(1, 0, 0, 30),
-                        BackgroundColor3 = self.Theme.Element,
+                        BackgroundColor3 = Library.Theme.Element,
                         BackgroundTransparency = 0.5,
                         Text = "",
                         AutoButtonColor = false,
@@ -363,7 +363,7 @@ do
                         BackgroundTransparency = 1,
                         Font = Enum.Font.Gotham,
                         Text = tData.Name or "Toggle",
-                        TextColor3 = self.Theme.Text,
+                        TextColor3 = Library.Theme.Text,
                         TextSize = 14,
                         TextXAlignment = Enum.TextXAlignment.Left
                     })
@@ -372,7 +372,7 @@ do
                         Parent = TFrame,
                         Size = UDim2.new(0, 30, 0, 14),
                         Position = UDim2.new(1, -40, 0.5, -7),
-                        BackgroundColor3 = Toggle.Value and self.Theme.Accent or Color3.fromRGB(50, 50, 50),
+                        BackgroundColor3 = Toggle.Value and Library.Theme.Accent or Color3.fromRGB(50, 50, 50),
                         BorderSizePixel = 0
                     })
                     Library:Create("UICorner", {Parent = Indicator, CornerRadius = UDim.new(1, 0)})
@@ -387,7 +387,7 @@ do
 
                     function Toggle:Set(val)
                         Toggle.Value = val
-                        Library:Tween(Indicator, 0.2, {BackgroundColor3 = val and self.Theme.Accent or Color3.fromRGB(50, 50, 50)})
+                        Library:Tween(Indicator, 0.2, {BackgroundColor3 = val and Library.Theme.Accent or Color3.fromRGB(50, 50, 50)})
                         Library:Tween(Circle, 0.2, {Position = val and UDim2.new(1, -12, 0.5, -5) or UDim2.new(0, 2, 0.5, -5)})
                         if tData.Callback then tData.Callback(val) end
                     end
@@ -404,7 +404,7 @@ do
                     local Btn = Library:Create("TextButton", {
                         Parent = SecFrame,
                         Size = UDim2.new(1, 0, 0, 30),
-                        BackgroundColor3 = self.Theme.Element,
+                        BackgroundColor3 = Library.Theme.Element,
                         BackgroundTransparency = 0.5,
                         Text = "",
                         AutoButtonColor = false,
@@ -417,13 +417,13 @@ do
                         BackgroundTransparency = 1,
                         Font = Enum.Font.Gotham,
                         Text = bData.Name or "Button",
-                        TextColor3 = self.Theme.Text,
+                        TextColor3 = Library.Theme.Text,
                         TextSize = 14
                     })
                     Btn.MouseButton1Click:Connect(function()
-                        Library:Tween(Btn, 0.1, {BackgroundColor3 = self.Theme.Accent})
+                        Library:Tween(Btn, 0.1, {BackgroundColor3 = Library.Theme.Accent})
                         task.wait(0.1)
-                        Library:Tween(Btn, 0.1, {BackgroundColor3 = self.Theme.Element})
+                        Library:Tween(Btn, 0.1, {BackgroundColor3 = Library.Theme.Element})
                         if bData.Callback then bData.Callback() end
                     end)
                     return Btn
@@ -435,7 +435,7 @@ do
                     local SFrame = Library:Create("Frame", {
                         Parent = SecFrame,
                         Size = UDim2.new(1, 0, 0, 40),
-                        BackgroundColor3 = self.Theme.Element,
+                        BackgroundColor3 = Library.Theme.Element,
                         BackgroundTransparency = 0.5,
                         BorderSizePixel = 0
                     })
@@ -447,7 +447,7 @@ do
                         BackgroundTransparency = 1,
                         Font = Enum.Font.Gotham,
                         Text = sData.Name or "Slider",
-                        TextColor3 = self.Theme.Text,
+                        TextColor3 = Library.Theme.Text,
                         TextSize = 14,
                         TextXAlignment = Enum.TextXAlignment.Left
                     })
@@ -458,7 +458,7 @@ do
                         BackgroundTransparency = 1,
                         Font = Enum.Font.GothamBold,
                         Text = tostring(Slider.Value),
-                        TextColor3 = self.Theme.Accent,
+                        TextColor3 = Library.Theme.Accent,
                         TextSize = 14,
                         TextXAlignment = Enum.TextXAlignment.Right
                     })
@@ -473,7 +473,7 @@ do
                     local Fill = Library:Create("Frame", {
                         Parent = Track,
                         Size = UDim2.new((Slider.Value - (sData.Min or 0)) / ((sData.Max or 100) - (sData.Min or 0)), 0, 1, 0),
-                        BackgroundColor3 = self.Theme.Accent,
+                        BackgroundColor3 = Library.Theme.Accent,
                         BorderSizePixel = 0
                     })
 
@@ -511,7 +511,7 @@ do
                     local DFrame = Library:Create("TextButton", {
                         Parent = SecFrame,
                         Size = UDim2.new(1, 0, 0, 30),
-                        BackgroundColor3 = self.Theme.Element,
+                        BackgroundColor3 = Library.Theme.Element,
                         BackgroundTransparency = 0.5,
                         Text = "",
                         AutoButtonColor = false,
@@ -525,7 +525,7 @@ do
                         BackgroundTransparency = 1,
                         Font = Enum.Font.Gotham,
                         Text = dData.Name or "Dropdown",
-                        TextColor3 = self.Theme.Text,
+                        TextColor3 = Library.Theme.Text,
                         TextSize = 14,
                         TextXAlignment = Enum.TextXAlignment.Left
                     })
@@ -536,7 +536,7 @@ do
                         BackgroundTransparency = 1,
                         Font = Enum.Font.GothamBold,
                         Text = Dropdown.Value or "None",
-                        TextColor3 = self.Theme.Accent,
+                        TextColor3 = Library.Theme.Accent,
                         TextSize = 14,
                         TextXAlignment = Enum.TextXAlignment.Right
                     })
@@ -544,8 +544,8 @@ do
                     local List = Library:Create("Frame", {
                         Parent = SecFrame,
                         Size = UDim2.new(1, 0, 0, 0),
-                        BackgroundColor3 = self.Theme.Sidebar,
-                        BackgroundTransparency = self.Theme.Transparency,
+                        BackgroundColor3 = Library.Theme.Sidebar,
+                        BackgroundTransparency = Library.Theme.Transparency,
                         BorderSizePixel = 0,
                         ClipsDescendants = true
                     })
@@ -561,7 +561,7 @@ do
                             local Btn = Library:Create("TextButton", {
                                 Parent = List,
                                 Size = UDim2.new(1, 0, 0, 25),
-                                BackgroundColor3 = opt == Dropdown.Value and self.Theme.Accent or self.Theme.Element,
+                                BackgroundColor3 = opt == Dropdown.Value and Library.Theme.Accent or Library.Theme.Element,
                                 BackgroundTransparency = 0.5,
                                 Text = "",
                                 AutoButtonColor = false,
@@ -574,7 +574,7 @@ do
                                 BackgroundTransparency = 1,
                                 Font = Enum.Font.Gotham,
                                 Text = opt,
-                                TextColor3 = self.Theme.Text,
+                                TextColor3 = Library.Theme.Text,
                                 TextSize = 14
                             })
                             Btn.MouseButton1Click:Connect(function()
@@ -624,7 +624,7 @@ do
             table.insert(Window.Tabs, {Btn = TabBtn, Page = Page})
             if #Window.Tabs == 1 then
                 Page.Visible = true
-                Library:Tween(TabBtn, 0.2, {BackgroundColor3 = self.Theme.Accent})
+                Library:Tween(TabBtn, 0.2, {BackgroundColor3 = Library.Theme.Accent})
             end
 
             return Tab
