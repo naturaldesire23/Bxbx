@@ -1,5 +1,5 @@
 -- Merged & Optimized UI Library
--- Features: FluentPro Slate Theme, Fixed Bottom Space, Fixed Close Button, Misc Tab Ready
+-- Features: FluentPro Slate Theme, Perfect 2-Column Layout, Anime Corner Watermark, Bug Fixes
 
 local Library = {}
 do
@@ -30,7 +30,7 @@ do
         DropdownArrow = "rbxassetid://105558791071013",
         ButtonIcon = "rbxassetid://10734898355",
         Notification = "rbxassetid://10709775704",
-        Background = "rbxassetid://6421296794"
+        CornerAnime = "rbxassetid://82631977882294" -- Your Gray Anime Image
     }
 
     Library.Flags = {}
@@ -187,30 +187,28 @@ do
         Library:ApplyBgGradient(Main)
         Library:Blurify(Main, 0.95)
 
+        -- Gray Anime Watermark in the corner
+        local CornerAnime = Library:Create("ImageLabel", {
+            Parent = Main, Size = UDim2.new(0, 400, 0, 400), 
+            Position = UDim2.new(1, -100, 1, -100), AnchorPoint = Vector2.new(1, 1),
+            BackgroundTransparency = 1, Image = Library.Assets.CornerAnime, 
+            ImageTransparency = 0.6, ZIndex = 1, ScaleType = Enum.ScaleType.Crop
+        })
+
         local TopBar = Library:Create("Frame", {Parent = Main, Size = UDim2.new(1, 0, 0, 45), BackgroundTransparency = 1, ZIndex = 10})
         Library:Draggable(Main, TopBar)
 
         Library:Create("TextLabel", {Parent = TopBar, Size = UDim2.new(0, 200, 1, 0), Position = UDim2.new(0, 10, 0, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamSemibold, Text = Data.Title or "Slate UI", TextColor3 = Library.Theme.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 10})
 
-        -- Fixed Window Controls (Fully Visible & Clickable)
-        local MinBtn = Library:Create("ImageLabel", {
-            Parent = TopBar, Size = UDim2.new(0, 18, 0, 18), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -45, 0.5, 0),
-            BackgroundTransparency = 1, Image = Library.Assets.Minimize, ImageColor3 = Library.Theme.Text, ZIndex = 12
-        })
-        local MinClick = Library:Create("TextButton", {
-            Parent = MinBtn, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 13
-        })
+        -- Window Controls
+        local MinBtn = Library:Create("ImageLabel", {Parent = TopBar, Size = UDim2.new(0, 18, 0, 18), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -45, 0.5, 0), BackgroundTransparency = 1, Image = Library.Assets.Minimize, ImageColor3 = Library.Theme.Text, ZIndex = 12})
+        local MinClick = Library:Create("TextButton", {Parent = MinBtn, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 13})
         MinClick.MouseButton1Click:Connect(function()
             if Main.Size.Y.Offset > 45 then Library:Tween(Main, 0.2, {Size = UDim2.new(0, Main.Size.X.Offset, 0, 45)}) else Library:Tween(Main, 0.2, {Size = UDim2.new(0, Main.Size.X.Offset, 0, 480)}) end
         end)
 
-        local CloseBtn = Library:Create("ImageLabel", {
-            Parent = TopBar, Size = UDim2.new(0, 18, 0, 18), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -15, 0.5, 0),
-            BackgroundTransparency = 1, Image = Library.Assets.Close, ImageColor3 = Library.Theme.Text, ZIndex = 12
-        })
-        local CloseClick = Library:Create("TextButton", {
-            Parent = CloseBtn, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 13
-        })
+        local CloseBtn = Library:Create("ImageLabel", {Parent = TopBar, Size = UDim2.new(0, 18, 0, 18), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -15, 0.5, 0), BackgroundTransparency = 1, Image = Library.Assets.Close, ImageColor3 = Library.Theme.Text, ZIndex = 12})
+        local CloseClick = Library:Create("TextButton", {Parent = CloseBtn, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 13})
         CloseClick.MouseButton1Click:Connect(function() Library:Tween(Main, 0.2, {Size = UDim2.new(0, 850, 0, 0)}) task.wait(0.2) Main.Visible = false Window.IsOpen = false end)
 
         local ResizeBtn = Library:Create("ImageLabel", {Parent = Main, Size = UDim2.new(0, 62, 0, 60), Position = UDim2.new(1, -5, 1, -5), BackgroundTransparency = 1, Image = Library.Assets.Resize, ImageColor3 = Library.Theme.TextDark, ZIndex = 10})
@@ -229,7 +227,7 @@ do
         Library:Create("UIListLayout", {Parent = SideBar, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder})
         Library:Create("UIPadding", {Parent = SideBar, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
 
-        local ContentArea = Library:Create("ScrollingFrame", {Parent = Main, Size = UDim2.new(1, -166, 1, -46), Position = UDim2.new(0, 166, 0, 46), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = Library.Theme.Border, CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 2})
+        local ContentArea = Library:Create("ScrollingFrame", {Parent = Main, Size = UDim2.new(1, -166, 1, -46), Position = UDim2.new(0, 166, 0, 46), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = Library.Theme.Border, CanvasSize = UDim2.new(0,0,0,0), ZIndex = 2})
         Library:Create("UIPadding", {Parent = ContentArea, PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 15), PaddingRight = UDim.new(0, 15)})
 
         function Window:Show()
@@ -267,16 +265,21 @@ do
 
             local Page = Library:Create("Frame", {Parent = ContentArea, Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, Visible = false, ZIndex = 2})
             
-            local GridLayout = Library:Create("UIGridLayout", {
-                Parent = Page, CellSize = UDim2.new(0.5, -9, 0, 0), 
-                CellPadding = UDim2.new(0, 12, 0, 12), HorizontalAlignment = Enum.HorizontalAlignment.Center,
-                SortOrder = Enum.SortOrder.LayoutOrder
-            })
+            -- Rock Solid 2-Column Layout System (Fixes overlapping and bottom space)
+            local Col1 = Library:Create("Frame", {Parent = Page, Size = UDim2.new(0.5, -6, 0, 0), BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y})
+            local Col2 = Library:Create("Frame", {Parent = Page, Size = UDim2.new(0.5, -6, 0, 0), Position = UDim2.new(0.5, 12, 0, 0), BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y})
+            local Col1Layout = Library:Create("UIListLayout", {Parent = Col1, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder})
+            local Col2Layout = Library:Create("UIListLayout", {Parent = Col2, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder})
+            
+            local CurrentCol = 0
 
-            -- Fixed Bottom Space Math (Subtracts the trailing cell padding)
-            GridLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                Page.Size = UDim2.new(1, 0, 0, GridLayout.AbsoluteContentSize.Y - 12)
-            end)
+            local function UpdatePageSize()
+                local h1, h2 = Col1Layout.AbsoluteContentSize.Y, Col2Layout.AbsoluteContentSize.Y
+                Page.Size = UDim2.new(1, 0, 0, math.max(h1, h2))
+                ContentArea.CanvasSize = UDim2.new(0, 0, 0, Page.AbsoluteSize.Y)
+            end
+            Col1Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdatePageSize)
+            Col2Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdatePageSize)
 
             TabBtn.MouseButton1Click:Connect(function()
                 for _, t in pairs(Window.Tabs) do
@@ -290,10 +293,13 @@ do
             end)
 
             function Tab:Section(SecData)
+                CurrentCol = CurrentCol + 1
+                local ParentCol = (CurrentCol % 2 == 1) and Col1 or Col2
+                
                 local Section = {}
                 local Elements = {}
                 
-                local SecFrame = Library:Create("Frame", {Parent = Page, Size = UDim2.new(0, 0, 0, 0), BackgroundColor3 = Library.Theme.Secondary, BorderSizePixel = 0, ZIndex = 2})
+                local SecFrame = Library:Create("Frame", {Parent = ParentCol, Size = UDim2.new(1, 0, 0, 0), BackgroundColor3 = Library.Theme.Secondary, BorderSizePixel = 0, ZIndex = 2})
                 Library:Create("UICorner", {Parent = SecFrame, CornerRadius = UDim.new(0, 6)})
                 local SecStroke = Library:Create("UIStroke", {Parent = SecFrame, Thickness = 1, ZIndex = 2})
                 Library:ApplyBgGradient(SecFrame)
@@ -305,8 +311,10 @@ do
                 local SecTitle = Library:Create("TextLabel", {Parent = SecFrame, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 12, 0, 8), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = SecData.Name or "Section", TextColor3 = Library.Theme.Text, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 2})
 
                 local function UpdateSecSize()
-                    -- Exact math: Elements + TopPad(30) + BottomPad(12)
-                    SecFrame.Size = UDim2.new(SecFrame.Size.X.Scale, SecFrame.Size.X.Offset, 0, SecLayout.AbsoluteContentSize.Y + 42)
+                    local targetHeight = SecLayout.AbsoluteContentSize.Y + 30 + 12
+                    if SecFrame.Size.Y.Offset ~= targetHeight then
+                        SecFrame.Size = UDim2.new(1, 0, 0, targetHeight)
+                    end
                 end
                 SecLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSecSize)
 
