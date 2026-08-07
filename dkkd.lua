@@ -1,5 +1,5 @@
 -- Merged & Optimized UI Library
--- Features: FluentPro Slate Theme, Gray/Black Gradients, Keybind Element, Perfect Dropdowns
+-- Features: FluentPro Slate Theme, Fixed Bottom Space, Fixed Close Button, Misc Tab Ready
 
 local Library = {}
 do
@@ -12,7 +12,7 @@ do
     local Workspace = game:GetService("Workspace")
     local Camera = Workspace.CurrentCamera
 
-    -- SlateAnimated Theme Configuration (Gray & Black)
+    -- SlateAnimated Theme Configuration
     Library.Theme = {
         Background = Color3.fromRGB(22, 24, 28),
         Secondary = Color3.fromRGB(28, 30, 35),
@@ -42,7 +42,6 @@ do
         return Inst
     end
 
-    -- Gray/Black Background Gradient
     function Library:ApplyBgGradient(Obj)
         return self:Create("UIGradient", {
             Parent = Obj, Rotation = 90,
@@ -50,7 +49,6 @@ do
         })
     end
 
-    -- Gray Stroke Gradient
     function Library:ApplyStrokeGradient(Obj)
         return self:Create("UIGradient", {
             Parent = Obj, Rotation = 0,
@@ -194,15 +192,25 @@ do
 
         Library:Create("TextLabel", {Parent = TopBar, Size = UDim2.new(0, 200, 1, 0), Position = UDim2.new(0, 10, 0, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamSemibold, Text = Data.Title or "Slate UI", TextColor3 = Library.Theme.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 10})
 
-        -- Controls
-        local MinBtn = Library:Create("ImageLabel", {Parent = TopBar, Size = UDim2.new(0, 15, 0, 15), Position = UDim2.new(1, -35, 0.5, -7), BackgroundTransparency = 1, Image = Library.Assets.Minimize, ImageColor3 = Library.Theme.Text, ZIndex = 10})
-        local MinClick = Library:Create("TextButton", {Parent = MinBtn, Size = UDim2.new(1, 10, 1, 10), Position = UDim2.new(-0.3, 0, -0.3, 0), BackgroundTransparency = 1, Text = "", ZIndex = 11})
+        -- Fixed Window Controls (Fully Visible & Clickable)
+        local MinBtn = Library:Create("ImageLabel", {
+            Parent = TopBar, Size = UDim2.new(0, 18, 0, 18), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -45, 0.5, 0),
+            BackgroundTransparency = 1, Image = Library.Assets.Minimize, ImageColor3 = Library.Theme.Text, ZIndex = 12
+        })
+        local MinClick = Library:Create("TextButton", {
+            Parent = MinBtn, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 13
+        })
         MinClick.MouseButton1Click:Connect(function()
             if Main.Size.Y.Offset > 45 then Library:Tween(Main, 0.2, {Size = UDim2.new(0, Main.Size.X.Offset, 0, 45)}) else Library:Tween(Main, 0.2, {Size = UDim2.new(0, Main.Size.X.Offset, 0, 480)}) end
         end)
 
-        local CloseBtn = Library:Create("ImageLabel", {Parent = TopBar, Size = UDim2.new(0, 15, 0, 15), Position = UDim2.new(1, -12, 0.5, -7), BackgroundTransparency = 1, Image = Library.Assets.Close, ImageColor3 = Library.Theme.Text, ZIndex = 10})
-        local CloseClick = Library:Create("TextButton", {Parent = CloseBtn, Size = UDim2.new(1, 10, 1, 10), Position = UDim2.new(-0.3, 0, -0.3, 0), BackgroundTransparency = 1, Text = "", ZIndex = 11})
+        local CloseBtn = Library:Create("ImageLabel", {
+            Parent = TopBar, Size = UDim2.new(0, 18, 0, 18), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -15, 0.5, 0),
+            BackgroundTransparency = 1, Image = Library.Assets.Close, ImageColor3 = Library.Theme.Text, ZIndex = 12
+        })
+        local CloseClick = Library:Create("TextButton", {
+            Parent = CloseBtn, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 13
+        })
         CloseClick.MouseButton1Click:Connect(function() Library:Tween(Main, 0.2, {Size = UDim2.new(0, 850, 0, 0)}) task.wait(0.2) Main.Visible = false Window.IsOpen = false end)
 
         local ResizeBtn = Library:Create("ImageLabel", {Parent = Main, Size = UDim2.new(0, 62, 0, 60), Position = UDim2.new(1, -5, 1, -5), BackgroundTransparency = 1, Image = Library.Assets.Resize, ImageColor3 = Library.Theme.TextDark, ZIndex = 10})
@@ -265,8 +273,9 @@ do
                 SortOrder = Enum.SortOrder.LayoutOrder
             })
 
+            -- Fixed Bottom Space Math (Subtracts the trailing cell padding)
             GridLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                Page.Size = UDim2.new(1, 0, 0, GridLayout.AbsoluteContentSize.Y)
+                Page.Size = UDim2.new(1, 0, 0, GridLayout.AbsoluteContentSize.Y - 12)
             end)
 
             TabBtn.MouseButton1Click:Connect(function()
@@ -296,7 +305,8 @@ do
                 local SecTitle = Library:Create("TextLabel", {Parent = SecFrame, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 12, 0, 8), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = SecData.Name or "Section", TextColor3 = Library.Theme.Text, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 2})
 
                 local function UpdateSecSize()
-                    SecFrame.Size = UDim2.new(SecFrame.Size.X.Scale, SecFrame.Size.X.Offset, 0, SecLayout.AbsoluteContentSize.Y + 30)
+                    -- Exact math: Elements + TopPad(30) + BottomPad(12)
+                    SecFrame.Size = UDim2.new(SecFrame.Size.X.Scale, SecFrame.Size.X.Offset, 0, SecLayout.AbsoluteContentSize.Y + 42)
                 end
                 SecLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSecSize)
 
@@ -391,7 +401,6 @@ do
                     Library:ApplyStrokeGradient(DStroke)
                     Library:Create("TextLabel", {Parent = DFrame, Size = UDim2.new(1, -160, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, Font = Enum.Font.Gotham, Text = dData.Name or "Dropdown", TextColor3 = Library.Theme.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 2})
 
-                    -- Widened to 140px so text fits perfectly
                     local Display = Library:Create("Frame", {Parent = DFrame, Size = UDim2.new(0, 140, 0, 26), Position = UDim2.new(1, -150, 0.5, -13), BackgroundColor3 = Library.Theme.Background, BorderSizePixel = 0, ZIndex = 2})
                     Library:Create("UICorner", {Parent = Display, CornerRadius = UDim.new(0, 5)})
                     local DispStroke = Library:Create("UIStroke", {Parent = Display, Thickness = 1, ZIndex = 2})
@@ -445,7 +454,6 @@ do
                     return Dropdown
                 end
 
-                -- New Keybind Element
                 function Section:Keybind(kData)
                     local Keybind = {Value = kData.Default or Enum.KeyCode.Unknown, Callback = kData.Callback or function() end}
                     local KFrame = Library:Create("TextButton", {Parent = SecFrame, Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = Library.Theme.Background, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 2})
