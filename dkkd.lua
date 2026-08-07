@@ -609,12 +609,17 @@ do
                 Section.AddButton = Section.Button
                 Section.AddSlider = Section.Slider
                 Section.AddDropdown = Section.Dropdown
+                Section.CreateToggle = Section.Toggle
+                Section.CreateButton = Section.Button
+                Section.CreateSlider = Section.Slider
+                Section.CreateDropdown = Section.Dropdown
                 
                 return Section
             end
 
             -- Backward Compatibility for Tabs
             Tab.AddSection = Tab.Section
+            Tab.CreateSection = Tab.Section
 
             table.insert(Window.Tabs, {Btn = TabBtn, Page = Page})
             if #Window.Tabs == 1 then
@@ -627,6 +632,7 @@ do
 
         -- Backward Compatibility for Window
         Window.AddTab = Window.Tab
+        Window.CreateTab = Window.Tab
 
         return Window
     end
