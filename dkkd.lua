@@ -449,11 +449,6 @@ do
                     TextXAlignment = Enum.TextXAlignment.Left
                 })
 
-                local function UpdateSize()
-                    Page.CanvasSize = UDim2.new(0, 0, 0, SecLayout.AbsoluteContentSize.Y + 40)
-                end
-                SecLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
-
                 function Section:Toggle(tData)
                     local Toggle = {Value = tData.Default or false}
                     
@@ -752,8 +747,6 @@ do
                     return Dropdown
                 end
 
-                UpdateSize()
-                
                 -- Backward Compatibility for Sections
                 Section.AddToggle = Section.Toggle
                 Section.AddButton = Section.Button
