@@ -1,537 +1,931 @@
---// Garden Tower Defense - Optimized Macro System v2.1
-local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/Rain-Design/Libraries/main/Shaman/Library.lua'))()
-local Flags = Library.Flags
+--[[
+	RectUI - Sharp-cornered Roblox UI Library
+	Matches spec: 500x400 window, 34px header, 32px tab bar, sections, elements.
+	Usage:
+		local UI = loadstring(game:HttpGet("https://your.url/rectui.lua"))()
+		local Window = UI:CreateWindow({ Title = "My Script" })
+]]
 
-local Players      = game:GetService("Players")
-local plr          = Players.LocalPlayer
-local rs           = game:GetService("ReplicatedStorage")
-local remotes      = rs:WaitForChild("RemoteFunctions")
-local Workspace    = game:GetService("Workspace")
-local RunService   = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 
--- Compatibility
-local isFile = writefile and readfile and isfolder and makefolder and listfiles and delfile
-local canHook = hookmetamethod ~= nil
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Settings
-local Settings = {
-    MacroEnabled      = false,
-    PositionOffset    = 2,
-    UsePositionOffset = true,
-    AutoWalk          = false,
-    AutoUpgrade       = true,
-    UpgradeDelay      = 125,
-    MacroPaused       = false,
+local UI = {}
 
-    AutoDifficulty    = "dif_normal",
-    AutoMap           = "map_dojo",
-    AutoSkipWaves     = true,
-    TickSpeed         = 3,
-    AutoRestart       = true,
-    RestartDelay      = 12,
+--// Default Theme (from spec)
+local DefaultTheme = {
+	Window = Color3.fromRGB(30, 30, 35),
+	Header = Color3.fromRGB(40, 40, 45),
+	TabBar = Color3.fromRGB(35, 35, 40),
+	TabInactive = Color3.fromRGB(170, 170, 170),
+	TabActive = Color3.fromRGB(255, 255, 255),
+	Section = Color3.fromRGB(38, 38, 43),
+	Element = Color3.fromRGB(50, 50, 55),
+	Border = Color3.fromRGB(50, 50, 55),
+	Text = Color3.fromRGB(255, 255, 255),
+	TextDim = Color3.fromRGB(180, 180, 180),
+	Accent = Color3.fromRGB(0, 150, 255),
 }
 
--- Recorder
-local Recorder = {
-    IsRecording = false,
-    StartTime   = 0,
-    Actions     = {},
-    MacroName   = "MyMacro",
-    LastMoney   = 0,
-}
-
--- Global state
-_G.myUnitIDs          = _G.myUnitIDs or {}
-_G.trackingEnabled    = false
-_G.upgradeLoopRunning = false
-_G.autoWalkConnection = nil
-_G.recordedUnits      = {}
-_G.macroThread        = nil
-
--- Error log
-local ErrorLog = {}
-local function logError(ctx, err)
-    local msg = string.format("[%s] %s", ctx, tostring(err))
-    table.insert(ErrorLog, {time = os.time(), msg = msg})
-    warn(msg)
+--// Helpers
+local function new(class, props)
+	local inst = Instance.new(class)
+	for k, v in pairs(props or {}) do
+		inst[k] = v
+	end
+	return inst
 end
 
--- UI
-local Window          = Library:Window({Text = "GTD Macro v2"})
-local FarmTab         = Window:Tab({Text = "Farm"})
-local AntiBanTab      = Window:Tab({Text = "Anti-Ban"})
-local RecorderTab     = Window:Tab({Text = "Recorder"})
-local AutoPlayTab     = Window:Tab({Text = "Auto Play"})
-
-local FarmSection     = FarmTab:Section({Text = "Auto Farm"})
-local UpgradeSection  = FarmTab:Section({Text = "Upgrades", Side = "Right"})
-local AntiBanSection  = AntiBanTab:Section({Text = "Humanization"})
-local MovementSection = AntiBanTab:Section({Text = "Movement", Side = "Right"})
-local RecorderSection = RecorderTab:Section({Text = "Recording"})
-local SavedMacrosSec  = RecorderTab:Section({Text = "Saved Macros", Side = "Right"})
-local GameSection     = AutoPlayTab:Section({Text = "Game Settings"})
-local RestartSection  = AutoPlayTab:Section({Text = "Restart Settings", Side = "Right"})
-
-local StatusLabel, RecorderStatusLabel, ErrorLabel
-
---------------------------------------------------------------------
--- Helper functions
---------------------------------------------------------------------
-local function getMoney()
-    local ok, val = pcall(function()
-        return plr:GetAttribute("Cash") or (plr:FindFirstChild("Cash") and plr.Cash.Value) or 0
-    end)
-    return ok and val or 0
+local function tween(inst, props, time, style, dir)
+	local t = TweenService:Create(inst, TweenInfo.new(time or 0.15, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), props)
+	t:Play()
+	return t
 end
 
-local function getEntities()
-    local ok, ent = pcall(function()
-        return Workspace:WaitForChild("Map"):WaitForChild("Entities")
-    end)
-    return ok and ent or nil
+local function makeDraggable(handle, target)
+	local dragging, dragInput, dragStart, startPos
+
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = target.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+
+	handle.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			dragInput = input
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if input == dragInput and dragging then
+			local delta = input.Position - dragStart
+			target.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
+			)
+		end
+	end)
 end
 
-local function getRandomOffset()
-    if not Settings.UsePositionOffset then return Vector3.new() end
-    local o = Settings.PositionOffset
-    return Vector3.new(
-        math.random(-o*10, o*10)/10,
-        0,
-        math.random(-o*10, o*10)/10
-    )
+--// CreateWindow
+function UI:CreateWindow(config)
+	config = config or {}
+	local Theme = DefaultTheme
+	if config.Theme then
+		for k, v in pairs(config.Theme) do
+			Theme[k] = v
+		end
+	end
+
+	local Window = {}
+	Window.Theme = Theme
+	Window.Tabs = {}
+	Window.ActiveTab = nil
+	Window.Flags = {}              -- flag name -> { Set, Get } for config save/load
+	Window.AccentRefreshers = {}   -- functions to call after SetAccent so live elements repaint
+
+	local function registerAccentRefresher(fn)
+		table.insert(Window.AccentRefreshers, fn)
+	end
+
+	function Window:SetAccent(color)
+		Theme.Accent = color
+		for _, refresh in ipairs(Window.AccentRefreshers) do
+			refresh()
+		end
+	end
+
+	function Window:Destroy()
+		if Window.Gui then
+			Window.Gui:Destroy()
+		end
+	end
+
+	function Window:SaveConfig(name)
+		local ok, err = pcall(function()
+			local data = {}
+			for flag, handle in pairs(Window.Flags) do
+				data[flag] = handle.Get()
+			end
+			local encoded = HttpService:JSONEncode(data)
+			if writefile then
+				if not isfolder or not isfolder("RectUI") then
+					if makefolder then makefolder("RectUI") end
+				end
+				writefile("RectUI/" .. name .. ".json", encoded)
+			end
+		end)
+		return ok, err
+	end
+
+	function Window:LoadConfig(name)
+		local ok, err = pcall(function()
+			if readfile and isfile and isfile("RectUI/" .. name .. ".json") then
+				local decoded = HttpService:JSONDecode(readfile("RectUI/" .. name .. ".json"))
+				for flag, value in pairs(decoded) do
+					if Window.Flags[flag] then
+						Window.Flags[flag].Set(nil, value)
+					end
+				end
+			end
+		end)
+		return ok, err
+	end
+
+	function Window:Notify(config)
+		config = config or {}
+		local title = config.Title or "Notification"
+		local text = config.Text or ""
+		local duration = config.Duration or 3
+
+		local NotifHolder = Window.NotifHolder
+		if not NotifHolder then
+			NotifHolder = new("Frame", {
+				Name = "Notifications",
+				Size = UDim2.new(0, 260, 1, -20),
+				Position = UDim2.new(1, -270, 0, 10),
+				BackgroundTransparency = 1,
+				Parent = Window.Gui,
+			})
+			new("UIListLayout", {
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				VerticalAlignment = Enum.VerticalAlignment.Bottom,
+				Padding = UDim.new(0, 6),
+				Parent = NotifHolder,
+			})
+			Window.NotifHolder = NotifHolder
+		end
+
+		local Card = new("Frame", {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundColor3 = Theme.Section,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Parent = NotifHolder,
+		})
+		new("UIStroke", { Color = Theme.Border, Thickness = 1, Transparency = 1, Parent = Card })
+		new("UIPadding", {
+			PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10),
+			PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8),
+			Parent = Card,
+		})
+		new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2), Parent = Card })
+
+		local NTitle = new("TextLabel", {
+			Size = UDim2.new(1, 0, 0, 16),
+			BackgroundTransparency = 1,
+			Text = title,
+			TextColor3 = Theme.Text,
+			TextTransparency = 1,
+			TextSize = 13,
+			Font = Enum.Font.GothamBold,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = Card,
+		})
+		local NText = new("TextLabel", {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			Text = text,
+			TextColor3 = Theme.TextDim,
+			TextTransparency = 1,
+			TextSize = 12,
+			TextWrapped = true,
+			Font = Enum.Font.Gotham,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = Card,
+		})
+
+		tween(Card, { BackgroundTransparency = 0 }, 0.15)
+		for _, d in ipairs({ { NTitle, 0 }, { NText, 0 } }) do
+			tween(d[1], { TextTransparency = d[2] }, 0.15)
+		end
+
+		task.delay(duration, function()
+			tween(Card, { BackgroundTransparency = 1 }, 0.2)
+			tween(NTitle, { TextTransparency = 1 }, 0.2)
+			tween(NText, { TextTransparency = 1 }, 0.2)
+			task.delay(0.2, function() Card:Destroy() end)
+		end)
+	end
+
+	local ScreenGui = new("ScreenGui", {
+		Name = "RectUI",
+		ResetOnSpawn = false,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		Parent = PlayerGui,
+	})
+
+	local size = config.Size or UDim2.new(0, 500, 0, 400)
+
+	local MainFrame = new("Frame", {
+		Name = "Window",
+		Size = size,
+		Position = UDim2.new(0.5, -size.X.Offset / 2, 0.5, -size.Y.Offset / 2),
+		BackgroundColor3 = Theme.Window,
+		BorderSizePixel = 0,
+		Parent = ScreenGui,
+	})
+	new("UICorner", { CornerRadius = UDim.new(0, 0), Parent = MainFrame })
+	new("UIStroke", { Color = Theme.Border, Thickness = 1, Parent = MainFrame })
+
+	--// Header
+	local Header = new("Frame", {
+		Name = "Header",
+		Size = UDim2.new(1, 0, 0, 34),
+		BackgroundColor3 = Theme.Header,
+		BorderSizePixel = 0,
+		Parent = MainFrame,
+	})
+
+	local Title = new("TextLabel", {
+		Name = "Title",
+		Size = UDim2.new(1, -100, 1, 0),
+		Position = UDim2.new(0, 10, 0, 0),
+		BackgroundTransparency = 1,
+		Text = config.Title or "RectUI",
+		TextColor3 = Theme.Text,
+		TextSize = 15,
+		Font = Enum.Font.GothamBold,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = Header,
+	})
+
+	-- Header buttons: gear, minimize, close (right to left)
+	local function headerButton(name, text, xOffset)
+		local btn = new("TextButton", {
+			Name = name,
+			Size = UDim2.new(0, 28, 0, 24),
+			Position = UDim2.new(1, xOffset, 0.5, -12),
+			BackgroundTransparency = 1,
+			Text = text,
+			TextColor3 = Theme.TextDim,
+			TextSize = 15,
+			Font = Enum.Font.GothamBold,
+			Parent = Header,
+		})
+		btn.MouseEnter:Connect(function() tween(btn, { TextColor3 = Theme.Text }, 0.1) end)
+		btn.MouseLeave:Connect(function() tween(btn, { TextColor3 = Theme.TextDim }, 0.1) end)
+		return btn
+	end
+
+	local CloseBtn = headerButton("Close", "✕", -32)
+	local MinBtn = headerButton("Minimize", "—", -60)
+	local GearBtn = headerButton("Settings", "⚙", -88)
+
+	makeDraggable(Header, MainFrame)
+
+	local minimized = false
+	local expandedSize = size
+	MinBtn.MouseButton1Click:Connect(function()
+		minimized = not minimized
+		if minimized then
+			tween(MainFrame, { Size = UDim2.new(0, size.X.Offset, 0, 34) }, 0.2)
+		else
+			tween(MainFrame, { Size = expandedSize }, 0.2)
+		end
+	end)
+
+	CloseBtn.MouseButton1Click:Connect(function()
+		tween(MainFrame, { Size = UDim2.new(0, size.X.Offset, 0, 0) }, 0.15)
+		task.delay(0.15, function() ScreenGui:Destroy() end)
+	end)
+
+	GearBtn.MouseButton1Click:Connect(function()
+		if Window.SettingsCallback then
+			Window.SettingsCallback()
+		end
+	end)
+
+	function Window:OnSettings(cb)
+		Window.SettingsCallback = cb
+	end
+
+	--// Tab Bar
+	local TabBar = new("Frame", {
+		Name = "TabBar",
+		Size = UDim2.new(1, 0, 0, 32),
+		Position = UDim2.new(0, 0, 0, 34),
+		BackgroundColor3 = Theme.TabBar,
+		BorderSizePixel = 0,
+		Parent = MainFrame,
+	})
+	new("UIStroke", {
+		Color = Theme.Border,
+		Thickness = 1,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = TabBar,
+	})
+	-- Only want bottom border; UIStroke draws all sides, acceptable visually for 1px sharp theme.
+
+	local TabLayout = new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = TabBar,
+	})
+
+	--// Content Area
+	local ContentArea = new("Frame", {
+		Name = "ContentArea",
+		Size = UDim2.new(1, 0, 1, -66),
+		Position = UDim2.new(0, 0, 0, 66),
+		BackgroundColor3 = Theme.Window,
+		BorderSizePixel = 0,
+		Parent = MainFrame,
+	})
+
+	--// CreateTab
+	function Window:CreateTab(name)
+		local Tab = {}
+		Tab.Name = name
+
+		local TabButton = new("TextButton", {
+			Name = name .. "Tab",
+			Size = UDim2.new(0, 0, 1, 0),
+			AutomaticSize = Enum.AutomaticSize.X,
+			BackgroundColor3 = Theme.TabBar,
+			BackgroundTransparency = 1,
+			Text = "",
+			AutoButtonColor = false,
+			Parent = TabBar,
+		})
+		new("UIPadding", {
+			PaddingLeft = UDim.new(0, 16),
+			PaddingRight = UDim.new(0, 16),
+			Parent = TabButton,
+		})
+
+		local TabLabel = new("TextLabel", {
+			Size = UDim2.new(0, 0, 1, 0),
+			AutomaticSize = Enum.AutomaticSize.X,
+			BackgroundTransparency = 1,
+			Text = name,
+			TextColor3 = Theme.TabInactive,
+			TextSize = 14,
+			Font = Enum.Font.Gotham,
+			Parent = TabButton,
+		})
+
+		local AccentBar = new("Frame", {
+			Name = "Accent",
+			Size = UDim2.new(1, 0, 0, 2),
+			Position = UDim2.new(0, 0, 1, -2),
+			BackgroundColor3 = Theme.Accent,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Parent = TabButton,
+		})
+		registerAccentRefresher(function() AccentBar.BackgroundColor3 = Theme.Accent end)
+
+		local Page = new("ScrollingFrame", {
+			Name = name .. "Page",
+			Size = UDim2.new(1, 0, 1, 0),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ScrollBarThickness = 3,
+			ScrollBarImageColor3 = Theme.Accent,
+			CanvasSize = UDim2.new(0, 0, 0, 0),
+			AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			Visible = false,
+			Parent = ContentArea,
+		})
+		registerAccentRefresher(function() Page.ScrollBarImageColor3 = Theme.Accent end)
+		new("UIPadding", {
+			PaddingLeft = UDim.new(0, 12),
+			PaddingRight = UDim.new(0, 12),
+			PaddingTop = UDim.new(0, 12),
+			PaddingBottom = UDim.new(0, 12),
+			Parent = Page,
+		})
+		local PageLayout = new("UIListLayout", {
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 8),
+			Parent = Page,
+		})
+
+		local function setActive(active)
+			if active then
+				tween(TabLabel, { TextColor3 = Theme.TabActive }, 0.12)
+				tween(AccentBar, { BackgroundTransparency = 0 }, 0.12)
+				Page.Visible = true
+			else
+				tween(TabLabel, { TextColor3 = Theme.TabInactive }, 0.12)
+				tween(AccentBar, { BackgroundTransparency = 1 }, 0.12)
+				Page.Visible = false
+			end
+		end
+
+		TabButton.MouseEnter:Connect(function()
+			if Window.ActiveTab ~= Tab then
+				tween(TabLabel, { TextColor3 = Theme.TabActive }, 0.1)
+				tween(TabButton, { BackgroundTransparency = 0.9 }, 0.1)
+			end
+		end)
+		TabButton.MouseLeave:Connect(function()
+			if Window.ActiveTab ~= Tab then
+				tween(TabLabel, { TextColor3 = Theme.TabInactive }, 0.1)
+			end
+			tween(TabButton, { BackgroundTransparency = 1 }, 0.1)
+		end)
+
+		TabButton.MouseButton1Click:Connect(function()
+			if Window.ActiveTab then
+				Window.ActiveTab.setActive(false)
+			end
+			Window.ActiveTab = Tab
+			setActive(true)
+		end)
+
+		Tab.setActive = setActive
+		Tab.Page = Page
+
+		if not Window.ActiveTab then
+			Window.ActiveTab = Tab
+			setActive(true)
+		end
+
+		--// CreateSection
+		function Tab:CreateSection(name)
+			local Section = {}
+
+			local SectionFrame = new("Frame", {
+				Name = name .. "Section",
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				BackgroundColor3 = Theme.Section,
+				BorderSizePixel = 0,
+				LayoutOrder = #Page:GetChildren(),
+				Parent = Page,
+			})
+			new("UIPadding", {
+				PaddingLeft = UDim.new(0, 10),
+				PaddingRight = UDim.new(0, 10),
+				PaddingTop = UDim.new(0, 10),
+				PaddingBottom = UDim.new(0, 10),
+				Parent = SectionFrame,
+			})
+			local SectionListLayout = new("UIListLayout", {
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, 8),
+				Parent = SectionFrame,
+			})
+
+			local SectionTitle = new("TextLabel", {
+				Name = "Title",
+				Size = UDim2.new(1, 0, 0, 14),
+				BackgroundTransparency = 1,
+				Text = string.upper(name),
+				TextColor3 = Theme.TextDim,
+				TextSize = 11,
+				Font = Enum.Font.GothamBold,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				LayoutOrder = 0,
+				Parent = SectionFrame,
+			})
+
+			local order = 1
+			local function nextOrder()
+				order = order + 1
+				return order
+			end
+
+			--// Elements
+
+			function Section:CreateLabel(text)
+				local Label = new("TextLabel", {
+					Size = UDim2.new(1, 0, 0, 18),
+					BackgroundTransparency = 1,
+					Text = text,
+					TextColor3 = Theme.Text,
+					TextSize = 14,
+					Font = Enum.Font.Gotham,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					LayoutOrder = nextOrder(),
+					Parent = SectionFrame,
+				})
+				return Label
+			end
+
+			function Section:CreateToggle(text, callback, flag)
+				callback = callback or function() end
+				local state = false
+
+				local Row = new("Frame", {
+					Size = UDim2.new(1, 0, 0, 20),
+					BackgroundTransparency = 1,
+					LayoutOrder = nextOrder(),
+					Parent = SectionFrame,
+				})
+
+				new("TextLabel", {
+					Size = UDim2.new(1, -46, 1, 0),
+					BackgroundTransparency = 1,
+					Text = text,
+					TextColor3 = Theme.Text,
+					TextSize = 14,
+					Font = Enum.Font.Gotham,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Parent = Row,
+				})
+
+				local Track = new("TextButton", {
+					Size = UDim2.new(0, 36, 0, 18),
+					Position = UDim2.new(1, -36, 0.5, -9),
+					BackgroundColor3 = Theme.Element,
+					Text = "",
+					AutoButtonColor = false,
+					Parent = Row,
+				})
+
+				local Knob = new("Frame", {
+					Size = UDim2.new(0, 14, 0, 14),
+					Position = UDim2.new(0, 2, 0.5, -7),
+					BackgroundColor3 = Theme.TextDim,
+					BorderSizePixel = 0,
+					Parent = Track,
+				})
+
+				local function render()
+					if state then
+						tween(Track, { BackgroundColor3 = Theme.Accent }, 0.12)
+						tween(Knob, { Position = UDim2.new(0, 20, 0.5, -7), BackgroundColor3 = Theme.Text }, 0.12)
+					else
+						tween(Track, { BackgroundColor3 = Theme.Element }, 0.12)
+						tween(Knob, { Position = UDim2.new(0, 2, 0.5, -7), BackgroundColor3 = Theme.TextDim }, 0.12)
+					end
+				end
+
+				Track.MouseButton1Click:Connect(function()
+					state = not state
+					render()
+					callback(state)
+				end)
+
+				registerAccentRefresher(function() render() end)
+
+				local handle = {
+					Set = function(_, v)
+						state = v
+						render()
+						callback(state)
+					end,
+					Get = function() return state end,
+				}
+				if flag then Window.Flags[flag] = handle end
+				return handle
+			end
+
+			function Section:CreateSlider(text, min, max, default, callback, step, flag)
+				callback = callback or function() end
+				step = step or 1
+				local value = default or min
+
+				local Row = new("Frame", {
+					Size = UDim2.new(1, 0, 0, 34),
+					BackgroundTransparency = 1,
+					LayoutOrder = nextOrder(),
+					Parent = SectionFrame,
+				})
+
+				local Label = new("TextLabel", {
+					Size = UDim2.new(1, -40, 0, 16),
+					BackgroundTransparency = 1,
+					Text = text,
+					TextColor3 = Theme.Text,
+					TextSize = 14,
+					Font = Enum.Font.Gotham,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Parent = Row,
+				})
+
+				local ValueLabel = new("TextLabel", {
+					Size = UDim2.new(0, 40, 0, 16),
+					Position = UDim2.new(1, -40, 0, 0),
+					BackgroundTransparency = 1,
+					Text = tostring(value),
+					TextColor3 = Theme.TextDim,
+					TextSize = 13,
+					Font = Enum.Font.Gotham,
+					TextXAlignment = Enum.TextXAlignment.Right,
+					Parent = Row,
+				})
+
+				local Track = new("Frame", {
+					Size = UDim2.new(1, 0, 0, 4),
+					Position = UDim2.new(0, 0, 0, 24),
+					BackgroundColor3 = Theme.Element,
+					BorderSizePixel = 0,
+					Parent = Row,
+				})
+
+				local Fill = new("Frame", {
+					Size = UDim2.new((value - min) / (max - min), 0, 1, 0),
+					BackgroundColor3 = Theme.Accent,
+					BorderSizePixel = 0,
+					Parent = Track,
+				})
+
+				local Knob = new("Frame", {
+					Size = UDim2.new(0, 12, 0, 12),
+					Position = UDim2.new((value - min) / (max - min), -6, 0.5, -6),
+					BackgroundColor3 = Theme.Text,
+					BorderSizePixel = 0,
+					Parent = Track,
+				})
+
+				local dragging = false
+
+				local function setFromAlpha(alpha)
+					alpha = math.clamp(alpha, 0, 1)
+					local raw = min + (max - min) * alpha
+					local steps = math.floor((raw - min) / step + 0.5)
+					value = min + steps * step
+					value = math.clamp(value, min, max)
+					local realAlpha = (value - min) / (max - min)
+					Fill.Size = UDim2.new(realAlpha, 0, 1, 0)
+					Knob.Position = UDim2.new(realAlpha, -6, 0.5, -6)
+					ValueLabel.Text = step < 1 and string.format("%.2f", value) or tostring(value)
+					callback(value)
+				end
+
+				Track.InputBegan:Connect(function(input)
+					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+						dragging = true
+						local alpha = (input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X
+						setFromAlpha(alpha)
+					end
+				end)
+
+				UserInputService.InputEnded:Connect(function(input)
+					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+						dragging = false
+					end
+				end)
+
+				UserInputService.InputChanged:Connect(function(input)
+					if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+						local alpha = (input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X
+						setFromAlpha(alpha)
+					end
+				end)
+
+				registerAccentRefresher(function() Fill.BackgroundColor3 = Theme.Accent end)
+
+				local handle = {
+					Set = function(_, v)
+						setFromAlpha((v - min) / (max - min))
+					end,
+					Get = function() return value end,
+				}
+				if flag then Window.Flags[flag] = handle end
+				return handle
+			end
+
+			function Section:CreateDropdown(text, options, callback, flag)
+				callback = callback or function() end
+				options = options or {}
+				local selected = options[1]
+				local open = false
+
+				local Row = new("Frame", {
+					Size = UDim2.new(1, 0, 0, 20),
+					BackgroundTransparency = 1,
+					LayoutOrder = nextOrder(),
+					ZIndex = 5,
+					Parent = SectionFrame,
+				})
+
+				new("TextLabel", {
+					Size = UDim2.new(1, -148, 1, 0),
+					BackgroundTransparency = 1,
+					Text = text,
+					TextColor3 = Theme.Text,
+					TextSize = 14,
+					Font = Enum.Font.Gotham,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Parent = Row,
+				})
+
+				local Box = new("TextButton", {
+					Size = UDim2.new(0, 140, 0, 28),
+					Position = UDim2.new(1, -140, 0.5, -14),
+					BackgroundColor3 = Theme.Element,
+					Text = "  " .. tostring(selected),
+					TextColor3 = Theme.Text,
+					TextSize = 13,
+					Font = Enum.Font.Gotham,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					AutoButtonColor = false,
+					ZIndex = 6,
+					Parent = Row,
+				})
+
+				local ListHolder = new("Frame", {
+					Size = UDim2.new(0, 140, 0, 0),
+					Position = UDim2.new(1, -140, 1, 2),
+					BackgroundColor3 = Theme.Element,
+					BorderSizePixel = 0,
+					ClipsDescendants = true,
+					ZIndex = 10,
+					Parent = Box,
+				})
+				new("UIListLayout", {
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Parent = ListHolder,
+				})
+
+				for i, opt in ipairs(options) do
+					local OptBtn = new("TextButton", {
+						Size = UDim2.new(1, 0, 0, 26),
+						BackgroundColor3 = Theme.Element,
+						BackgroundTransparency = 0,
+						Text = "  " .. tostring(opt),
+						TextColor3 = Theme.TextDim,
+						TextSize = 13,
+						Font = Enum.Font.Gotham,
+						TextXAlignment = Enum.TextXAlignment.Left,
+						AutoButtonColor = false,
+						ZIndex = 11,
+						Parent = ListHolder,
+					})
+					OptBtn.MouseEnter:Connect(function()
+						tween(OptBtn, { TextColor3 = Theme.Text }, 0.1)
+					end)
+					OptBtn.MouseLeave:Connect(function()
+						tween(OptBtn, { TextColor3 = Theme.TextDim }, 0.1)
+					end)
+					OptBtn.MouseButton1Click:Connect(function()
+						selected = opt
+						Box.Text = "  " .. tostring(opt)
+						open = false
+						tween(ListHolder, { Size = UDim2.new(0, 140, 0, 0) }, 0.12)
+						callback(opt)
+					end)
+				end
+
+				local function closeDropdown()
+					if open then
+						open = false
+						tween(ListHolder, { Size = UDim2.new(0, 140, 0, 0) }, 0.12)
+					end
+				end
+
+				Box.MouseButton1Click:Connect(function()
+					open = not open
+					local h = open and math.min(#options * 26, 130) or 0
+					tween(ListHolder, { Size = UDim2.new(0, 140, 0, h) }, 0.12)
+				end)
+
+				-- Close when clicking anywhere outside the box/list
+				UserInputService.InputBegan:Connect(function(input, gameProcessed)
+					if not open then return end
+					if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+						return
+					end
+					local pos = input.Position
+					local boxPos, boxSize = Box.AbsolutePosition, Box.AbsoluteSize
+					local listPos, listSize = ListHolder.AbsolutePosition, ListHolder.AbsoluteSize
+					local inBox = pos.X >= boxPos.X and pos.X <= boxPos.X + boxSize.X
+						and pos.Y >= boxPos.Y and pos.Y <= boxPos.Y + boxSize.Y
+					local inList = pos.X >= listPos.X and pos.X <= listPos.X + listSize.X
+						and pos.Y >= listPos.Y and pos.Y <= listPos.Y + listSize.Y
+					if not inBox and not inList then
+						closeDropdown()
+					end
+				end)
+
+				local handle = {
+					Set = function(_, v)
+						selected = v
+						Box.Text = "  " .. tostring(v)
+						callback(v)
+					end,
+					Get = function() return selected end,
+				}
+				if flag then Window.Flags[flag] = handle end
+				return handle
+			end
+
+			function Section:CreateButton(text, callback)
+				callback = callback or function() end
+
+				local Btn = new("TextButton", {
+					Size = UDim2.new(1, 0, 0, 30),
+					BackgroundColor3 = Theme.Accent,
+					Text = text,
+					TextColor3 = Theme.Text,
+					TextSize = 14,
+					Font = Enum.Font.GothamBold,
+					AutoButtonColor = false,
+					LayoutOrder = nextOrder(),
+					Parent = SectionFrame,
+				})
+
+				Btn.MouseEnter:Connect(function()
+					tween(Btn, { BackgroundColor3 = Color3.new(
+						math.min(Theme.Accent.R + 0.08, 1),
+						math.min(Theme.Accent.G + 0.08, 1),
+						math.min(Theme.Accent.B + 0.08, 1)
+					) }, 0.1)
+				end)
+				Btn.MouseLeave:Connect(function()
+					tween(Btn, { BackgroundColor3 = Theme.Accent }, 0.1)
+				end)
+				Btn.MouseButton1Click:Connect(function()
+					callback()
+				end)
+
+				registerAccentRefresher(function() Btn.BackgroundColor3 = Theme.Accent end)
+
+				return Btn
+			end
+
+			function Section:CreateKeybind(text, default, callback, flag)
+				callback = callback or function() end
+				local bindingKey = default or Enum.KeyCode.Unknown
+				local listening = false
+
+				local Row = new("Frame", {
+					Size = UDim2.new(1, 0, 0, 26),
+					BackgroundTransparency = 1,
+					LayoutOrder = nextOrder(),
+					Parent = SectionFrame,
+				})
+
+				new("TextLabel", {
+					Size = UDim2.new(1, -70, 1, 0),
+					BackgroundTransparency = 1,
+					Text = text,
+					TextColor3 = Theme.Text,
+					TextSize = 14,
+					Font = Enum.Font.Gotham,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Parent = Row,
+				})
+
+				local KeyBox = new("TextButton", {
+					Size = UDim2.new(0, 60, 0, 26),
+					Position = UDim2.new(1, -60, 0, 0),
+					BackgroundColor3 = Theme.Element,
+					Text = bindingKey.Name,
+					TextColor3 = Theme.Text,
+					TextSize = 12,
+					Font = Enum.Font.Gotham,
+					TextXAlignment = Enum.TextXAlignment.Center,
+					AutoButtonColor = false,
+					Parent = Row,
+				})
+
+				KeyBox.MouseButton1Click:Connect(function()
+					listening = true
+					KeyBox.Text = "..."
+				end)
+
+				UserInputService.InputBegan:Connect(function(input, gpe)
+					if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+						bindingKey = input.KeyCode
+						KeyBox.Text = bindingKey.Name
+						listening = false
+						callback(bindingKey)
+					elseif not gpe and input.KeyCode == bindingKey and not listening then
+						callback(bindingKey)
+					end
+				end)
+
+				local handle = {
+					Set = function(_, key)
+						-- accepts either an Enum.KeyCode or its name as a string (config files store strings)
+						bindingKey = typeof(key) == "string" and Enum.KeyCode[key] or key
+						KeyBox.Text = bindingKey.Name
+					end,
+					Get = function() return bindingKey.Name end, -- string so it's JSON-safe for SaveConfig
+				}
+				if flag then Window.Flags[flag] = handle end
+				return handle
+			end
+
+			return Section
+		end
+
+		return Tab
+	end
+
+	Window.Gui = ScreenGui
+	Window.Frame = MainFrame
+	return Window
 end
 
-local function getUnitID(unit)
-    for _ = 1, 10 do
-        local ok, id = pcall(function()
-            for _, v in ipairs(unit:GetDescendants()) do
-                if (v:IsA("IntValue") or v:IsA("NumberValue") or v:IsA("StringValue"))
-                    and v.Name:lower():find("id") then
-                    return v.Value
-                end
-            end
-            for n, v in pairs(unit:GetAttributes()) do
-                if n:lower():find("id") then return v end
-            end
-        end)
-        if ok and id then return id end
-        task.wait(0.2)
-    end
-    return nil
-end
-
-local function safeInvoke(remote, ...)
-    local ok, res = pcall(function() return remote:InvokeServer(...) end)
-    if not ok then logError("Remote", res) end
-    return ok and res or nil
-end
-
-local function detectGameEnd()
-    local ok, gui = pcall(function() return plr.PlayerGui:FindFirstChild("GameGuiNoInset") end)
-    if not ok or not gui then return false end
-    local defeat = gui:FindFirstChild("DefeatScreen") or gui:FindFirstChild("Defeat")
-    local victory = gui:FindFirstChild("VictoryScreen") or gui:FindFirstChild("Victory")
-    return (defeat and defeat.Visible) or (victory and victory.Visible)
-end
-
---------------------------------------------------------------------
--- Auto Walk
---------------------------------------------------------------------
-local function startAutoWalk()
-    if _G.autoWalkConnection then stopAutoWalk() end
-    local cd, walking = 0, false
-    _G.autoWalkConnection = RunService.Heartbeat:Connect(function(dt)
-        if not Settings.AutoWalk or not _G.trackingEnabled then return end
-        cd = cd - dt
-        local ok = pcall(function()
-            local char = plr.Character
-            if not char then return end
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if not hum or not hrp then return end
-            if cd <= 0 then
-                if not walking then
-                    walking = true
-                    local dur = math.random(30,80)/10
-                    local tx = math.random(-50,50)
-                    local tz = math.random(-50,50)
-                    hum:MoveTo(hrp.Position + Vector3.new(tx,0,tz))
-                    cd = dur
-                else
-                    walking = false
-                    local dur = math.random(20,50)/10
-                    hum:MoveTo(hrp.Position)
-                    cd = dur
-                end
-            end
-        end)
-        if not ok then stopAutoWalk() end
-    end)
-end
-
-local function stopAutoWalk()
-    if _G.autoWalkConnection then
-        _G.autoWalkConnection:Disconnect()
-        _G.autoWalkConnection = nil
-    end
-    pcall(function()
-        local char = plr.Character
-        if char and char:FindFirstChildOfClass("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
-            char.Humanoid:MoveTo(char.HumanoidRootPart.Position)
-        end
-    end)
-end
-
---------------------------------------------------------------------
--- Unit tracking
---------------------------------------------------------------------
-local function setupUnitTracking()
-    local ents = getEntities()
-    if not ents then return end
-
-    ents.ChildAdded:Connect(function(child)
-        task.spawn(function()
-            if not child or not child.Parent or not child.Name:find("unit_") then return end
-            task.wait(1)
-            local id = getUnitID(child)
-            if id then
-                if _G.trackingEnabled then
-                    table.insert(_G.myUnitIDs, id)
-                    warn("tracked unit:", id)
-                end
-                if Recorder.IsRecording then
-                    table.insert(_G.recordedUnits, id)
-                    warn("recorder tracked:", id)
-                end
-            end
-        end)
-    end)
-
-    ents.ChildRemoved:Connect(function(child)
-        if not child or not child.Name:find("unit_") then return end
-        task.spawn(function()
-            local id = getUnitID(child)
-            if id then
-                for i = #_G.myUnitIDs, 1, -1 do
-                    if _G.myUnitIDs[i] == id then table.remove(_G.myUnitIDs, i) end
-                end
-            end
-        end)
-    end)
-end
-
---------------------------------------------------------------------
--- Game setup
---------------------------------------------------------------------
-local function setupGame()
-    task.spawn(function()
-        pcall(function() safeInvoke(remotes.PlaceDifficultyVote, Settings.AutoDifficulty) end)
-        task.wait(0.5)
-        pcall(function() safeInvoke(remotes.ChangeTickSpeed, Settings.TickSpeed) end)
-
-        if Settings.AutoSkipWaves then
-            task.wait(6)
-            task.spawn(function()
-                while _G.trackingEnabled do
-                    pcall(function() safeInvoke(remotes.SkipWave, "y") end)
-                    task.wait(1)
-                end
-            end)
-        end
-        warn("game setup complete")
-    end)
-end
-
---------------------------------------------------------------------
--- Unit costs
---------------------------------------------------------------------
-local unitCosts = {
-    unit_tomato_rainbow = 100,
-    unit_metal_flower   = 2250,
-    unit_golem_dragon   = 5000,
-    unit_eyeball        = 4500,
-    unit_punch_potato   = 2500,
-    unit_lucky_plant    = 1500,
-    unit_eye_petal      = 5500,
-    unit_confusion_plant= 1000,
-}
-local function getUnitCost(t) return unitCosts[t] or 0 end
-
---------------------------------------------------------------------
--- Money monitoring (recording)
---------------------------------------------------------------------
-local function startMoneyMonitoring()
-    if not Recorder.IsRecording then return end
-    task.spawn(function()
-        Recorder.LastMoney = getMoney()
-        while Recorder.IsRecording do
-            task.wait(0.1)
-            local cur = getMoney()
-            if cur ~= Recorder.LastMoney then
-                local diff = Recorder.LastMoney - cur
-                if diff > 0 then
-                    local t = tick() - Recorder.StartTime
-                    warn(string.format("cost $%d @ %.1fs", diff, t))
-                end
-                Recorder.LastMoney = cur
-            end
-        end
-    end)
-end
-
---------------------------------------------------------------------
--- Recorder hook
---------------------------------------------------------------------
-if canHook then
-    local old
-    old = hookmetamethod(game, "__namecall", function(self, ...)
-        local method = getnamecallmethod()
-        local args   = {...}
-
-        if method == "InvokeServer" and Recorder.IsRecording then
-            -- PLACE
-            if self.Name == "PlaceUnit" then
-                local unit, data = args[1], args[2]
-                task.defer(function()
-                    pcall(function()
-                        local t = math.floor((tick() - Recorder.StartTime)*10)/10
-                        local rec = {
-                            time   = t,
-                            type   = "place",
-                            unit   = unit,
-                            cframe = data.CF,
-                            position = Vector3.new(data.Position.X, data.Position.Y, data.Position.Z),
-                            rotation = data.Rotation,
-                            cost   = getUnitCost(unit),
-                            cashBefore = Recorder.LastMoney
-                        }
-                        table.insert(Recorder.Actions, rec)
-                        warn(string.format("recorded place %s @ %.1fs", unit, t))
-                        if RecorderStatusLabel then
-                            RecorderStatusLabel:Set({
-                                Text = string.format("Recording... (%d)", #Recorder.Actions),
-                                Color = Color3.fromRGB(255,100,100)
-                            })
-                        end
-                    end)
-                end)
-
-            -- UPGRADE
-            elseif self.Name == "UpgradeUnit" then
-                local uid = args[1]
-                task.defer(function()
-                    pcall(function()
-                        local idx = table.find(_G.recordedUnits, uid)
-                        if not idx then return end
-                        local t = math.floor((tick() - Recorder.StartTime)*10)/10
-                        local rec = {
-                            time   = t,
-                            type   = "upgrade",
-                            unitIndex = idx,
-                            cashBefore = Recorder.LastMoney
-                        }
-                        table.insert(Recorder.Actions, rec)
-                        warn(string.format("recorded upgrade #%d @ %.1fs", idx, t))
-                        if RecorderStatusLabel then
-                            RecorderStatusLabel:Set({
-                                Text = string.format("Recording... (%d)", #Recorder.Actions),
-                                Color = Color3.fromRGB(255,100,100)
-                            })
-                        end
-                    end)
-                end)
-
-            -- SELL
-            elseif self.Name == "SellUnit" then
-                local uid = args[1]
-                task.defer(function()
-                    pcall(function()
-                        local idx = table.find(_G.recordedUnits, uid)
-                        if not idx then return end
-                        local t = math.floor((tick() - Recorder.StartTime)*10)/10
-                        local rec = {time = t, type = "sell", unitIndex = idx}
-                        table.insert(Recorder.Actions, rec)
-                        warn(string.format("recorded sell #%d @ %.1fs", idx, t))
-                        if RecorderStatusLabel then
-                            RecorderStatusLabel:Set({
-                                Text = string.format("Recording... (%d)", #Recorder.Actions),
-                                Color = Color3.fromRGB(255,100,100)
-                            })
-                        end
-                    end)
-                end)
-            end
-        end
-        return old(self, ...)
-    end)
-end
-
---------------------------------------------------------------------
--- Recorder controls
---------------------------------------------------------------------
-local function startRecording()
-    Recorder.IsRecording = true
-    Recorder.StartTime   = tick()
-    Recorder.Actions     = {}
-    _G.recordedUnits     = {}
-    Recorder.LastMoney   = getMoney()
-    warn("recording started")
-    if RecorderStatusLabel then
-        RecorderStatusLabel:Set({Text = "Recording... (0)", Color = Color3.fromRGB(255,100,100)})
-    end
-    startMoneyMonitoring()
-end
-
-local function stopRecording()
-    Recorder.IsRecording = false
-    warn("recording stopped - actions:", #Recorder.Actions)
-    if RecorderStatusLabel then
-        RecorderStatusLabel:Set({Text = string.format("Stopped (%d)", #Recorder.Actions), Color = Color3.fromRGB(255,200,0)})
-    end
-end
-
-local function saveRecording()
-    if not isFile then warn("no file I/O"); return end
-    if #Recorder.Actions == 0 then
-        warn("nothing to save")
-        if RecorderStatusLabel then RecorderStatusLabel:Set({Text = "No actions!", Color = Color3.fromRGB(255,0,0)}) end
-        return
-    end
-    local name = Recorder.MacroName == "" and ("Macro_"..os.time()) or Recorder.MacroName:gsub("[^%w_-]", "_")
-    local data = {name = name, actions = Recorder.Actions, createdAt = os.date("%Y-%m-%d %H:%M:%S"), version = 2}
-    local script = "return "..tableToString(data)
-
-    pcall(function()
-        if not isfolder("SimpleSpy") then makefolder("SimpleSpy") end
-        if not isfolder("SimpleSpy/Macros") then makefolder("SimpleSpy/Macros") end
-    end)
-
-    local ok, err = pcall(function() writefile("SimpleSpy/Macros/"..name..".lua", script) end)
-    if ok then
-        warn("saved:", name)
-        if RecorderStatusLabel then RecorderStatusLabel:Set({Text = "Saved: "..name, Color = Color3.fromRGB(0,255,100)}) end
-        task.wait(1); loadSavedMacros()
-    else
-        warn("save error:", err)
-        if RecorderStatusLabel then RecorderStatusLabel:Set({Text = "Save failed!", Color = Color3.fromRGB(255,0,0)}) end
-    end
-end
-
-local function tableToString(t, indent)
-    indent = indent or ""
-    local s = "{\n"
-    for k,v in pairs(t) do
-        s = s .. indent .. "    "
-        if type(k)=="string" then s = s..'["'..k..'"] = ' else s = s.."["..k.."] = " end
-        if type(v)=="table" then
-            s = s .. tableToString(v, indent.."    ")
-        elseif type(v)=="string" then
-            s = s..'"'..v..'"'
-        elseif typeof(v)=="Vector3" then
-            s = s..string.format("Vector3.new(%.10f, %.10f, %.10f)", v.X, v.Y, v.Z)
-        elseif typeof(v)=="CFrame" then
-            local c = {v:GetComponents()}
-            s = s..string.format("CFrame.new(%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f)", unpack(c))
-        else
-            s = s..tostring(v)
-        end
-        s = s..",\n"
-    end
-    return s..indent.."}"
-end
-
-local function loadSavedMacros()
-    if not isFile then return end
-    pcall(function()
-        for _,c in pairs(SavedMacrosSec:GetDescendants()) do
-            if c:IsA("TextButton") then c:Destroy() end
-        end
-    end)
-    pcall(function()
-        if not isfolder("SimpleSpy") then makefolder("SimpleSpy") end
-        if not isfolder("SimpleSpy/Macros") then makefolder("SimpleSpy/Macros") end
-    end)
-
-    local ok, files = pcall(listfiles, "SimpleSpy/Macros")
-    if not ok or not files then
-        SavedMacrosSec:Label({Text = "No macros yet", Color = Color3.fromRGB(150,150,150)})
-        return
-    end
-
-    local cnt = 0
-    for _,f in ipairs(files) do
-        if f:match("%.lua$") then
-            cnt = cnt + 1
-            local name = f:match("([^/\\]+)%.lua$")
-            SavedMacrosSec:Button({
-                Text = "Play "..name,
-                Tooltip = "Play this macro",
-                Callback = function() playMacro(f) end
-            })
-            SavedMacrosSec:Button({
-                Text = "Delete",
-                Tooltip = "Delete "..name,
-                Callback = function()
-                    pcall(delfile, f)
-                    task.wait(0.2)
-                    loadSavedMacros()
-                end
-            })
-        end
-    end
-    if cnt == 0 then
-        SavedMacrosSec:Label({Text = "No macros yet", Color = Color3.fromRGB(150,150,150)})
-    end
-end
-
---------------------------------------------------------------------
--- Macro playback
---------------------------------------------------------------------
-local function playMacro(file)
-    if not isFile then return end
-    local ok, script = pcall(readfile, file)
-    if not ok then warn("cannot read file"); return end
-    local data = loadstring(script)()
-    warn("playing:", data.name, "#actions:", #data.actions)
-
-    _G.myUnitIDs          = {}
-    _G.trackingEnabled    = true
-    _G.upgradeLoopRunning = false
-    _G.recordedUnits      = {}
-    Settings.MacroPaused  = false
-
-    setupGame()
-
-    _G.macroThread = coroutine.create(function()
-        for i, act in ipairs(data.actions) do
-            local prev = data.actions[i-1]
-            task.wait(act.time - (prev and prev.time or 0))
-            while Settings.MacroPaused do task.wait(0.5) end
-            if not _G.trackingEnabled then break end
-
-            if act.type == "place" then
-                local off = getRandomOffset()
-                local cf  = act.cframe + off
-                local payload = {
-                    Valid    = true,
-                    Rotation = act.rotation,
-                    CF       = cf,
-                    Position = Vector3.new(cf.X, cf.Y, cf.Z)
-                }
-                local waited = 0
-                while getMoney() < act.cost and waited < 120 do
-                    task.wait(1); waited = waited + 1
-                end
-                if getMoney() >= act.cost then
-                    local id = safeInvoke(remotes.PlaceUnit, act.unit, payload)
-                    if id then table.insert(_G.recordedUnits, id); warn("placed", act.unit) end
-                else
-                    warn("timeout (place)", act.unit)
-                end
-
-            elseif act.type == "upgrade" then
-                local uid = _G.recordedUnits[act.unitIndex]
-                if uid then
-                    local cost = act.cashBefore and (act.cashBefore - getMoney()) or Settings.UpgradeDelay
-                    local waited = 0
-          
+return UI
