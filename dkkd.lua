@@ -1,5 +1,5 @@
 -- Merged & Optimized UI Library
--- Features: 50% Transparency, Glass Blur, Modern UI, Optimized Performance
+-- Features: 50% Transparency, Glass Blur, Modern UI, Optimized Performance, Backward Compatible
 
 local Library = {}
 do
@@ -603,8 +603,18 @@ do
                 end
 
                 UpdateSize()
+                
+                -- Backward Compatibility for Sections
+                Section.AddToggle = Section.Toggle
+                Section.AddButton = Section.Button
+                Section.AddSlider = Section.Slider
+                Section.AddDropdown = Section.Dropdown
+                
                 return Section
             end
+
+            -- Backward Compatibility for Tabs
+            Tab.AddSection = Tab.Section
 
             table.insert(Window.Tabs, {Btn = TabBtn, Page = Page})
             if #Window.Tabs == 1 then
@@ -614,6 +624,9 @@ do
 
             return Tab
         end
+
+        -- Backward Compatibility for Window
+        Window.AddTab = Window.Tab
 
         return Window
     end
@@ -643,6 +656,9 @@ do
             self:Notify("Config", "Loaded config: " .. Name, 3)
         end
     end
+    
+    -- Backward Compatibility for Library
+    Library.CreateWindow = Library.Window
 end
 
 return Library
