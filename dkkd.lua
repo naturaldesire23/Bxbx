@@ -1,5 +1,5 @@
 -- Merged & Optimized UI Library
--- Features: 50% Transparency, Glass Blur, Modern UI, Optimized Performance, Backward Compatible
+-- Features: 50% Transparency, Glass Blur, Custom Assets, Gradient Accents, Backward Compatible
 
 local Library = {}
 do
@@ -13,14 +13,28 @@ do
     local Workspace = game:GetService("Workspace")
     local Camera = Workspace.CurrentCamera
 
-    -- Theme Configuration
+    -- Exact Theme Configuration from Script 3
     Library.Theme = {
         Accent = Color3.fromRGB(0, 116, 224),
-        Background = Color3.fromRGB(15, 15, 18),
-        Sidebar = Color3.fromRGB(20, 20, 24),
-        Element = Color3.fromRGB(30, 30, 35),
+        AccentGradient = Color3.fromRGB(0, 195, 255),
+        Background = Color3.fromRGB(12, 12, 14),
+        Background2 = Color3.fromRGB(10, 10, 12),
+        Sidebar = Color3.fromRGB(15, 15, 18),
+        Element = Color3.fromRGB(16, 16, 18),
+        SectionTop = Color3.fromRGB(28, 27, 31),
         Text = Color3.fromRGB(235, 235, 235),
-        Transparency = 0.5 -- Half transparent as requested
+        Outline = Color3.fromRGB(25, 25, 28),
+        Transparency = 0.2 -- Sleeker transparency to match the gradient style
+    }
+
+    -- Image Assets from Script 3
+    Library.Assets = {
+        Logo = "rbxassetid://120959262762131",
+        Checkmark = "rbxassetid://121760666525660",
+        SliderKnob = "rbxassetid://117786983271442",
+        DropdownArrow = "rbxassetid://123317177279443",
+        SettingsIcon = "rbxassetid://122669828593160",
+        CloseIcon = "rbxassetid://130510492706892"
     }
 
     Library.Flags = {}
@@ -33,6 +47,15 @@ do
             Inst[K] = V
         end
         return Inst
+    end
+
+    -- Helper: Apply Accent Gradient
+    function Library:ApplyAccentGradient(Obj)
+        return self:Create("UIGradient", {
+            Parent = Obj,
+            Rotation = -115,
+            Color = ColorSequence.new(self.Theme.Accent, self.Theme.AccentGradient)
+        })
     end
 
     -- Helper: Tween
@@ -49,7 +72,7 @@ do
         return C
     end
 
-    -- Blur Effect (Taken from Script 1 & Improved)
+    -- Blur Effect
     function Library:Blurify(Frame, Strength)
         local Part = self:Create("Part", {
             Material = Enum.Material.Glass,
@@ -156,7 +179,8 @@ do
             BorderSizePixel = 0
         })
         Library:Create("UICorner", {Parent = Notif, CornerRadius = UDim.new(0, 6)})
-        Library:Create("UIStroke", {Parent = Notif, Color = Library.Theme.Accent, Transparency = 0.5})
+        local NotifStroke = Library:Create("UIStroke", {Parent = Notif, Color = Library.Theme.Accent, Transparency = 0.5})
+        Library:ApplyAccentGradient(NotifStroke)
 
         Library:Create("TextLabel", {
             Parent = Notif,
@@ -203,7 +227,7 @@ do
             Size = UDim2.new(0, 650, 0, 450),
             Position = UDim2.new(0.5, -325, 0.5, -225),
             BackgroundColor3 = Library.Theme.Background,
-            BackgroundTransparency = Library.Theme.Transparency, -- Half transparent
+            BackgroundTransparency = Library.Theme.Transparency,
             BorderSizePixel = 0,
             Visible = false,
             ClipsDescendants = true
@@ -215,22 +239,32 @@ do
         local TopBar = Library:Create("Frame", {
             Parent = Main,
             Size = UDim2.new(1, 0, 0, 40),
-            BackgroundColor3 = Library.Theme.Sidebar,
+            BackgroundColor3 = Library.Theme.Background2,
             BackgroundTransparency = Library.Theme.Transparency,
             BorderSizePixel = 0
         })
-        Library:Create("Frame", {
+        local TopLine = Library:Create("Frame", {
             Parent = TopBar,
             Size = UDim2.new(1, 0, 0, 1),
             Position = UDim2.new(0, 0, 1, -1),
             BackgroundColor3 = Library.Theme.Accent,
             BorderSizePixel = 0
         })
+        Library:ApplyAccentGradient(TopLine)
+
+        -- Custom Logo
+        Library:Create("ImageLabel", {
+            Parent = TopBar,
+            Size = UDim2.new(0, 24, 0, 24),
+            Position = UDim2.new(0, 10, 0.5, -12),
+            BackgroundTransparency = 1,
+            Image = Library.Assets.Logo
+        })
 
         Library:Create("TextLabel", {
             Parent = TopBar,
-            Size = UDim2.new(1, -50, 1, 0),
-            Position = UDim2.new(0, 15, 0, 0),
+            Size = UDim2.new(1, -150, 1, 0),
+            Position = UDim2.new(0, 42, 0, 0),
             BackgroundTransparency = 1,
             Font = Enum.Font.GothamBold,
             Text = Data.Title or "Merged UI",
@@ -238,6 +272,32 @@ do
             TextSize = 16,
             TextXAlignment = Enum.TextXAlignment.Left
         })
+
+        -- Close Button
+        local CloseBtn = Library:Create("TextButton", {
+            Parent = TopBar,
+            Size = UDim2.new(0, 28, 0, 28),
+            Position = UDim2.new(1, -34, 0.5, -14),
+            BackgroundColor3 = Library.Theme.Element,
+            BackgroundTransparency = 0.5,
+            Text = "",
+            AutoButtonColor = false,
+            BorderSizePixel = 0
+        })
+        Library:Create("UICorner", {Parent = CloseBtn, CornerRadius = UDim.new(0, 6)})
+        Library:Create("ImageLabel", {
+            Parent = CloseBtn,
+            Size = UDim2.new(0, 12, 0, 12),
+            Position = UDim2.new(0.5, -6, 0.5, -6),
+            BackgroundTransparency = 1,
+            Image = Library.Assets.CloseIcon,
+            ImageColor3 = Library.Theme.Text
+        })
+        CloseBtn.MouseButton1Click:Connect(function()
+            Library:Tween(Main, 0.3, {Size = UDim2.new(0, 650, 0, 0)}):
+            wait(0.3)
+            Main.Visible = false
+        end)
 
         local SideBar = Library:Create("Frame", {
             Parent = Main,
@@ -326,6 +386,16 @@ do
                 local SecLayout = Library:Create("UIListLayout", {Parent = SecFrame, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder})
                 Library:Create("UIPadding", {Parent = SecFrame, PaddingTop = UDim.new(0, 30), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)})
 
+                -- Section Top Accent
+                local SecTopLine = Library:Create("Frame", {
+                    Parent = SecFrame,
+                    Size = UDim2.new(1, 0, 0, 2),
+                    Position = UDim2.new(0, 0, 0, 0),
+                    BackgroundColor3 = Library.Theme.Accent,
+                    BorderSizePixel = 0
+                })
+                Library:ApplyAccentGradient(SecTopLine)
+
                 Library:Create("TextLabel", {
                     Parent = SecFrame,
                     Size = UDim2.new(1, 0, 0, 20),
@@ -333,7 +403,7 @@ do
                     BackgroundTransparency = 1,
                     Font = Enum.Font.GothamBold,
                     Text = SecData.Name or "Section",
-                    TextColor3 = Library.Theme.Accent,
+                    TextColor3 = Library.Theme.Text,
                     TextSize = 14,
                     TextXAlignment = Enum.TextXAlignment.Left
                 })
@@ -370,25 +440,35 @@ do
 
                     local Indicator = Library:Create("Frame", {
                         Parent = TFrame,
-                        Size = UDim2.new(0, 30, 0, 14),
-                        Position = UDim2.new(1, -40, 0.5, -7),
-                        BackgroundColor3 = Toggle.Value and Library.Theme.Accent or Color3.fromRGB(50, 50, 50),
+                        Size = UDim2.new(0, 18, 0, 18),
+                        Position = UDim2.new(1, -28, 0.5, -9),
+                        BackgroundColor3 = Library.Theme.Element,
                         BorderSizePixel = 0
                     })
-                    Library:Create("UICorner", {Parent = Indicator, CornerRadius = UDim.new(1, 0)})
-                    local Circle = Library:Create("Frame", {
+                    Library:Create("UICorner", {Parent = Indicator, CornerRadius = UDim.new(0, 4)})
+                    local IndicatorStroke = Library:Create("UIStroke", {Parent = Indicator, Color = Library.Theme.Outline, Thickness = 1.5})
+                    
+                    local CheckImg = Library:Create("ImageLabel", {
                         Parent = Indicator,
-                        Size = UDim2.new(0, 10, 0, 10),
-                        Position = Toggle.Value and UDim2.new(1, -12, 0.5, -5) or UDim2.new(0, 2, 0.5, -5),
-                        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-                        BorderSizePixel = 0
+                        Size = UDim2.new(0, 12, 0, 12),
+                        Position = UDim2.new(0.5, -6, 0.5, -6),
+                        BackgroundTransparency = 1,
+                        Image = Library.Assets.Checkmark,
+                        ImageTransparency = 1
                     })
-                    Library:Create("UICorner", {Parent = Circle, CornerRadius = UDim.new(1, 0)})
+                    Library:ApplyAccentGradient(IndicatorStroke)
 
                     function Toggle:Set(val)
                         Toggle.Value = val
-                        Library:Tween(Indicator, 0.2, {BackgroundColor3 = val and Library.Theme.Accent or Color3.fromRGB(50, 50, 50)})
-                        Library:Tween(Circle, 0.2, {Position = val and UDim2.new(1, -12, 0.5, -5) or UDim2.new(0, 2, 0.5, -5)})
+                        if val then
+                            Library:Tween(Indicator, 0.2, {BackgroundColor3 = Library.Theme.Accent})
+                            Library:Tween(IndicatorStroke, 0.2, {Transparency = 1})
+                            Library:Tween(CheckImg, 0.2, {ImageTransparency = 0})
+                        else
+                            Library:Tween(Indicator, 0.2, {BackgroundColor3 = Library.Theme.Element})
+                            Library:Tween(IndicatorStroke, 0.2, {Transparency = 0})
+                            Library:Tween(CheckImg, 0.2, {ImageTransparency = 1})
+                        end
                         if tData.Callback then tData.Callback(val) end
                     end
 
@@ -411,7 +491,8 @@ do
                         BorderSizePixel = 0
                     })
                     Library:Create("UICorner", {Parent = Btn, CornerRadius = UDim.new(0, 4)})
-                    Library:Create("TextLabel", {
+                    
+                    local BtnText = Library:Create("TextLabel", {
                         Parent = Btn,
                         Size = UDim2.new(1, 0, 1, 0),
                         BackgroundTransparency = 1,
@@ -420,10 +501,13 @@ do
                         TextColor3 = Library.Theme.Text,
                         TextSize = 14
                     })
+
                     Btn.MouseButton1Click:Connect(function()
                         Library:Tween(Btn, 0.1, {BackgroundColor3 = Library.Theme.Accent})
-                        task.wait(0.1)
+                        Library:Tween(BtnText, 0.1, {TextColor3 = Color3.fromRGB(255,255,255)})
+                        task.wait(0.15)
                         Library:Tween(Btn, 0.1, {BackgroundColor3 = Library.Theme.Element})
+                        Library:Tween(BtnText, 0.1, {TextColor3 = Library.Theme.Text})
                         if bData.Callback then bData.Callback() end
                     end)
                     return Btn
@@ -467,7 +551,7 @@ do
                         Parent = SFrame,
                         Size = UDim2.new(1, -20, 0, 4),
                         Position = UDim2.new(0, 10, 0, 28),
-                        BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+                        BackgroundColor3 = Library.Theme.Outline,
                         BorderSizePixel = 0
                     })
                     local Fill = Library:Create("Frame", {
@@ -475,6 +559,15 @@ do
                         Size = UDim2.new((Slider.Value - (sData.Min or 0)) / ((sData.Max or 100) - (sData.Min or 0)), 0, 1, 0),
                         BackgroundColor3 = Library.Theme.Accent,
                         BorderSizePixel = 0
+                    })
+                    Library:ApplyAccentGradient(Fill)
+                    
+                    local Knob = Library:Create("ImageLabel", {
+                        Parent = Fill,
+                        Size = UDim2.new(0, 16, 0, 12),
+                        Position = UDim2.new(1, -8, 0.5, -6),
+                        BackgroundTransparency = 1,
+                        Image = Library.Assets.SliderKnob
                     })
 
                     local Sliding = false
@@ -541,6 +634,15 @@ do
                         TextXAlignment = Enum.TextXAlignment.Right
                     })
 
+                    local Arrow = Library:Create("ImageLabel", {
+                        Parent = DFrame,
+                        Size = UDim2.new(0, 12, 0, 8),
+                        Position = UDim2.new(1, -20, 0.5, -4),
+                        BackgroundTransparency = 1,
+                        Image = Library.Assets.DropdownArrow,
+                        ImageColor3 = Library.Theme.Text
+                    })
+
                     local List = Library:Create("Frame", {
                         Parent = SecFrame,
                         Size = UDim2.new(1, 0, 0, 0),
@@ -584,6 +686,7 @@ do
                                 if dData.Callback then dData.Callback(opt) end
                                 Dropdown.Open = false
                                 Library:Tween(List, 0.2, {Size = UDim2.new(1, 0, 0, 0)})
+                                Library:Tween(Arrow, 0.2, {Rotation = 0})
                             end)
                         end
                     end
@@ -593,8 +696,10 @@ do
                         if Dropdown.Open then
                             Refresh()
                             Library:Tween(List, 0.2, {Size = UDim2.new(1, 0, 0, ListLayout.AbsoluteContentSize.Y + 8)})
+                            Library:Tween(Arrow, 0.2, {Rotation = 180})
                         else
                             Library:Tween(List, 0.2, {Size = UDim2.new(1, 0, 0, 0)})
+                            Library:Tween(Arrow, 0.2, {Rotation = 0})
                         end
                     end)
 
