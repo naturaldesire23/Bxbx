@@ -386,7 +386,7 @@ do
                 BorderSizePixel = 0
             })
             Library:Create("UICorner", {Parent = TabBtn, CornerRadius = UDim.new(0, 5)})
-            Library:Create("UIStroke", {Parent = TabBtn, Color = Library.Theme.Border, Thickness = 1, Transparency = 1})
+            local TabStroke = Library:Create("UIStroke", {Parent = TabBtn, Color = Library.Theme.Border, Thickness = 1, Transparency = 1})
             
             Library:Create("TextLabel", {
                 Parent = TabBtn,
