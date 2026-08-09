@@ -1,17 +1,17 @@
 -- ============================================================
--- AZURE UI LIBRARY (From your original script)
+-- AZURE UI LIBRARY (No cloneref required)
 -- ============================================================
 local AzureUI = {}
 AzureUI.__index = AzureUI
 
 -- ============================================================
--- SERVICES
+-- SERVICES (Without cloneref)
 -- ============================================================
-local UserInputService = cloneref(game:GetService('UserInputService'))
-local TweenService = cloneref(game:GetService('TweenService'))
-local Players = cloneref(game:GetService('Players'))
-local CoreGui = cloneref(game:GetService('CoreGui'))
-local Debris = cloneref(game:GetService('Debris'))
+local UserInputService = game:GetService('UserInputService')
+local TweenService = game:GetService('TweenService')
+local Players = game:GetService('Players')
+local CoreGui = game:GetService('CoreGui')
+local Debris = game:GetService('Debris')
 local LocalPlayer = Players.LocalPlayer
 
 -- ============================================================
@@ -95,7 +95,6 @@ function Library:notify(settings)
     local root = self:create_notification_root()
     if not root then return end
 
-    -- Remove old notifications if too many
     if #self._notification_active >= 3 and self._notification_active[1] then
         pcall(function()
             if self._notification_active[1].Parent then
@@ -542,4 +541,5 @@ function Library:create_ui()
             Description.TextColor3 = Color3.fromRGB(150, 150, 170)
             Description.TextTransparency = 0.5
             Description.Text = settings.description or ""
- 
+            Description.Name = "Description"
+            Description.Size = UDim2
