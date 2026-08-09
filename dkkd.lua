@@ -1,7 +1,7 @@
 -- ============================================================
--- AZURE UI LIBRARY (Full UI from your 18k script)
+-- AZURE UI - FULL LIBRARY (Copy this to any script)
 -- ============================================================
-print("[UI] Loading Azure UI Library...")
+print("[UI] Loading Azure UI...")
 
 local UserInputService = game:GetService('UserInputService')
 local TweenService = game:GetService('TweenService')
@@ -541,4 +541,4 @@ function Library:create_ui()
             Description.Name = "Description"
             Description.Size = UDim2.new(0, 200, 0, 16)
             Description.AnchorPoint = Vector2.new(0, 0.5)
-            Description.P
+            Description.Positio
