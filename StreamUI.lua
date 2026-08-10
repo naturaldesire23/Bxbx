@@ -673,9 +673,6 @@ function StreamUI:CreateWindow(title)
         Parent = MiniBadge,
     })
 
-    -- ---------------- FOOTER (small decorative status strip) ----------------
-
-
     -- ---------------- DECORATIONS (theme-matched) ----------------
     -- Purely cosmetic, sits behind the row content (ZIndex 0) so it only
     -- shows through empty space and never covers a control. Rebuilt
@@ -1205,7 +1202,7 @@ function StreamUI:CreateWindow(title)
 
             local Box = new("TextBox", {
                 Text = cfg.Default or "",
-                PlaceholderText = cfg.Placeholder or "",
+                PlaceholderText = cfg.Placeholder or "Enter text...",
                 Font = FONT,
                 TextSize = 12,
                 TextColor3 = Theme.TextPrimary,
@@ -1321,20 +1318,3 @@ function StreamUI:CreateWindow(title)
 end
 
 return StreamUI
-
---[[
-    OPTIONAL: persisting settings with DataStoreService instead of writefile.
-
-    local DataStoreService = game:GetService("DataStoreService")
-    local store = DataStoreService:GetDataStore("StreamUI_Settings")
-
-    local function saveConfig(userId, config)
-        pcall(function() store:SetAsync(tostring(userId), config) end)
-    end
-
-    local function loadConfig(userId, default)
-        local ok, result = pcall(function() return store:GetAsync(tostring(userId)) end)
-        if ok and result then return result end
-        return default
-    end
-]]
