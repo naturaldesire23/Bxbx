@@ -1187,6 +1187,53 @@ function StreamUI:CreateWindow(title)
             end)
         end
 
+        -- ---------------- TEXTBOX ----------------
+        function Tab:CreateTextbox(cfg)
+            cfg = cfg or {}
+            local Row = baseRow(34)
+
+            themed(new("TextLabel", {
+                Text = cfg.Title or "Textbox",
+                Font = FONT,
+                TextSize = 13,
+                TextColor3 = Theme.TextPrimary,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(0.4, 0, 1, 0),
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = Row,
+            }), "TextColor3", "TextPrimary")
+
+            local Box = new("TextBox", {
+                Text = cfg.Default or "",
+                PlaceholderText = cfg.Placeholder or "",
+                Font = FONT,
+                TextSize = 12,
+                TextColor3 = Theme.TextPrimary,
+                PlaceholderColor3 = Theme.TextDisabled,
+                BackgroundColor3 = Theme.TertiaryBg,
+                ClearTextOnFocus = false,
+                Size = UDim2.new(0.6, -4, 0, 24),
+                Position = UDim2.new(0.4, 4, 0.5, -12),
+                Parent = Row,
+            }, { corner(6), new("UIPadding", {
+                PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8),
+            }) })
+            themed(Box, "TextColor3", "TextPrimary")
+            themed(Box, "PlaceholderColor3", "TextDisabled")
+            themed(Box, "BackgroundColor3", "TertiaryBg")
+
+            Box.FocusLost:Connect(function(enterPressed)
+                if cfg.Callback then
+                    cfg.Callback(Box.Text, enterPressed)
+                end
+            end)
+
+            return {
+                Set = function(_, text) Box.Text = text end,
+                Get = function() return Box.Text end,
+            }
+        end
+
         -- ---------------- LABEL ----------------
         function Tab:CreateLabel(text)
             local Row = baseRow(26)
