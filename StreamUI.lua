@@ -18,6 +18,7 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -419,12 +420,26 @@ local function makeDraggable(dragHandle, target, onTap)
     local dragging = false
     local moved = false
     local dragStart, startPos
+    local lastInputPos
+
+    local function applyPosition()
+        if not dragging or not lastInputPos then return end
+        local delta = lastInputPos - dragStart
+        if delta.Magnitude > 4 then
+            moved = true
+        end
+        target.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
 
     dragHandle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             moved = false
             dragStart = input.Position
+            lastInputPos = input.Position
             startPos = target.Position
 
             local endConn
@@ -442,18 +457,16 @@ local function makeDraggable(dragHandle, target, onTap)
 
     -- Listen globally (not just on dragHandle) so the drag keeps tracking
     -- even if the finger/cursor moves off the handle's bounds mid-drag.
+    -- Only the latest input position is recorded here -- the actual move
+    -- happens on RenderStepped below, once per rendered frame, so the
+    -- drag stays smooth even if input events arrive unevenly.
     UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            if delta.Magnitude > 4 then
-                moved = true
-            end
-            target.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
+            lastInputPos = input.Position
         end
     end)
+
+    RunService.RenderStepped:Connect(applyPosition)
 end
 
 -- ============================================================
@@ -606,7 +619,7 @@ function StreamUI:CreateWindow(title)
 
     local TabBar = new("ScrollingFrame", {
         Name = "TabBar",
-        Size = UDim2.new(0, 120, 1, -72),
+        Size = UDim2.new(0, 120, 1, -58),
         Position = UDim2.fromOffset(0, 50),
         BackgroundColor3 = Theme.SecondaryBg,
         BorderSizePixel = 0,
@@ -632,7 +645,7 @@ function StreamUI:CreateWindow(title)
 
     local PageHolder = new("Frame", {
         Name = "PageHolder",
-        Size = UDim2.new(1, -136, 1, -72),
+        Size = UDim2.new(1, -136, 1, -58),
         Position = UDim2.fromOffset(128, 50),
         BackgroundTransparency = 1,
         Parent = Main,
@@ -661,47 +674,7 @@ function StreamUI:CreateWindow(title)
     })
 
     -- ---------------- FOOTER (small decorative status strip) ----------------
-    local Footer = new("Frame", {
-        Name = "Footer",
-        Size = UDim2.new(1, 0, 0, 22),
-        Position = UDim2.new(0, 0, 1, -22),
-        BackgroundColor3 = Theme.SecondaryBg,
-        Parent = Main,
-    })
-    themed(Footer, "BackgroundColor3", "SecondaryBg")
-    local footerBlend = new("Frame", {
-        Size = UDim2.new(1, 0, 0, 10),
-        Position = UDim2.fromOffset(0, 0),
-        BackgroundColor3 = Theme.SecondaryBg,
-        BorderSizePixel = 0,
-        Parent = Footer,
-    })
-    themed(footerBlend, "BackgroundColor3", "SecondaryBg")
 
-    local StatusDot = new("Frame", {
-        Size = UDim2.fromOffset(6, 6),
-        Position = UDim2.fromOffset(10, 8),
-        BackgroundColor3 = Theme.Enabled,
-        Parent = Footer,
-    }, { corner(3) })
-    themed(StatusDot, "BackgroundColor3", "Enabled")
-    TweenService:Create(
-        StatusDot,
-        TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-        { BackgroundTransparency = 0.6 }
-    ):Play()
-
-    themed(new("TextLabel", {
-        Text = "StreamUI  •  ready",
-        Font = FONT,
-        TextSize = 11,
-        TextColor3 = Theme.TextDisabled,
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(22, 4),
-        Size = UDim2.new(1, -32, 1, -4),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Footer,
-    }), "TextColor3", "TextDisabled")
 
     -- ---------------- DECORATIONS (theme-matched) ----------------
     -- Purely cosmetic, sits behind the row content (ZIndex 0) so it only
@@ -718,9 +691,9 @@ function StreamUI:CreateWindow(title)
     end
 
     local DECO_SPOTS = {
-        { x = 360, y = 245, size = 8 },
-        { x = 390, y = 262, size = 6 },
-        { x = 150, y = 250, size = 6 },
+        { x = 360, y = 258, size = 8 },
+        { x = 390, y = 275, size = 6 },
+        { x = 150, y = 265, size = 6 },
     }
 
     local function buildDecorations()
@@ -755,7 +728,6 @@ function StreamUI:CreateWindow(title)
             PageHolder.Visible = false
             TopBar.Visible = false
             accentLine.Visible = false
-            Footer.Visible = false
             setDecorationsVisible(false)
 
             MiniBadge.Visible = true
@@ -774,7 +746,6 @@ function StreamUI:CreateWindow(title)
                 PageHolder.Visible = true
                 TopBar.Visible = true
                 accentLine.Visible = true
-                Footer.Visible = true
                 setDecorationsVisible(true)
             end)
 
