@@ -1,10 +1,6 @@
 --[[
     StreamUI Library
-    Re-engineered to match the Cascade/Mylar architectural schema.
-    - Sidebar + Workarea layout
-    - Search-filtered navigation
-    - macOS-style window controls
-    - Clean dark mode aesthetic
+    Tuned for sharp geometry, transparency, and Right-Control toggling.
 ]]
 
 local Players = game:GetService("Players")
@@ -29,7 +25,7 @@ local function new(class, props, children)
 end
 
 local function tp(ins, pos, time)
-    TweenService:Create(ins, TweenInfo.new(time or 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut), {Position = pos}):Play()
+    TweenService:Create(ins, TweenInfo.new(time or 0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = pos}):Play()
 end
 
 function StreamUI:CreateWindow(title)
@@ -49,13 +45,13 @@ function StreamUI:CreateWindow(title)
         Position = UDim2.new(0.5, 0, 1.5, 0), 
         AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundColor3 = Color3.fromRGB(24, 24, 27),
+        BackgroundTransparency = 0.2,
         BorderSizePixel = 0,
         Parent = scrgui,
     })
-    new("UICorner", { CornerRadius = UDim.new(0, 12) }).Parent = main
-    new("UIStroke", { Color = Color3.fromRGB(45, 45, 45), Thickness = 1, Transparency = 0 }).Parent = main
+    new("UICorner", { CornerRadius = UDim.new(0, 4) }).Parent = main
+    new("UIStroke", { Color = Color3.fromRGB(45, 45, 45), Thickness = 1, Transparency = 0.5 }).Parent = main
     
-    -- Draggable
     local dragging, dragInput, dragStart, startPos
     main.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -81,7 +77,6 @@ function StreamUI:CreateWindow(title)
         end
     end)
 
-    -- Mac Buttons
     local buttonsFrame = new("Frame", {
         Name = "buttons",
         Size = UDim2.new(0, 80, 0, 40),
@@ -127,8 +122,8 @@ function StreamUI:CreateWindow(title)
     new("UICorner", { CornerRadius = UDim.new(1, 0) }).Parent = resizeBtn
 
     closeBtn.MouseButton1Click:Connect(function()
-        tp(main, main.Position + UDim2.new(0, 0, 2, 0), 0.5)
-        task.delay(0.5, function() scrgui:Destroy() end)
+        tp(main, main.Position + UDim2.new(0, 0, 2, 0), 0.6)
+        task.delay(0.6, function() scrgui:Destroy() end)
     end)
 
     local visible = true
@@ -138,16 +133,22 @@ function StreamUI:CreateWindow(title)
         visible = not visible
         isAnimating = true
         if visible then
-            tp(main, UDim2.new(0.5, 0, 0.5, 0), 0.5)
+            tp(main, UDim2.new(0.5, 0, 0.5, 0), 0.6)
         else
-            tp(main, main.Position + UDim2.new(0, 0, 2, 0), 0.5)
+            tp(main, main.Position + UDim2.new(0, 0, 2, 0), 0.6)
         end
-        task.delay(0.5, function() isAnimating = false end)
+        task.delay(0.6, function() isAnimating = false end)
     end
     
     minimizeBtn.MouseButton1Click:Connect(toggleVisible)
 
-    -- Title
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.KeyCode == Enum.KeyCode.RightControl then
+            toggleVisible()
+        end
+    end)
+
     new("TextLabel", {
         Name = "title",
         Size = UDim2.new(0, 400, 0, 30),
@@ -161,7 +162,6 @@ function StreamUI:CreateWindow(title)
         Parent = main,
     })
 
-    -- Sidebar
     local sidebar = new("ScrollingFrame", {
         Name = "sidebar",
         Size = UDim2.new(0, 230, 1, -80),
@@ -179,16 +179,16 @@ function StreamUI:CreateWindow(title)
         SortOrder = Enum.SortOrder.LayoutOrder,
     }).Parent = sidebar
 
-    -- Search bar
     local searchBar = new("Frame", {
         Name = "search",
         Size = UDim2.new(1, -10, 0, 36),
         BackgroundColor3 = Color3.fromRGB(34, 34, 38),
+        BackgroundTransparency = 0.2,
         Parent = sidebar,
     })
-    new("UICorner", { CornerRadius = UDim.new(0, 8) }).Parent = searchBar
+    new("UICorner", { CornerRadius = UDim.new(0, 4) }).Parent = searchBar
 
-    local searchIcon = new("ImageLabel", {
+    new("ImageLabel", {
         Size = UDim2.fromOffset(18, 18),
         Position = UDim2.new(0, 10, 0.5, -9),
         BackgroundTransparency = 1,
@@ -212,15 +212,15 @@ function StreamUI:CreateWindow(title)
         Parent = searchBar,
     })
 
-    -- Workarea (Right side)
     local workarea = new("Frame", {
         Name = "workarea",
         Size = UDim2.new(1, -260, 1, -80),
         Position = UDim2.new(0, 245, 0, 70),
         BackgroundColor3 = Color3.fromRGB(28, 28, 31),
+        BackgroundTransparency = 0.5,
         Parent = main,
     })
-    new("UICorner", { CornerRadius = UDim.new(0, 12) }).Parent = workarea
+    new("UICorner", { CornerRadius = UDim.new(0, 4) }).Parent = workarea
 
     local sections = {}
     local pages = {}
@@ -239,7 +239,6 @@ function StreamUI:CreateWindow(title)
         end
     end
 
-    -- Search logic
     RunService.RenderStepped:Connect(function()
         if not searchBox:IsFocused() then
             for _, btn in ipairs(sections) do
@@ -274,7 +273,7 @@ function StreamUI:CreateWindow(title)
             AutoButtonColor = false,
             Parent = sidebar,
         })
-        new("UICorner", { CornerRadius = UDim.new(0, 8) }).Parent = sidebarBtn
+        new("UICorner", { CornerRadius = UDim.new(0, 4) }).Parent = sidebarBtn
         new("UIPadding", { PaddingLeft = UDim.new(0, 12) }).Parent = sidebarBtn
 
         local page = new("ScrollingFrame", {
@@ -335,13 +334,13 @@ function StreamUI:CreateWindow(title)
                 LayoutOrder = #page:GetChildren(),
                 Parent = page,
             })
-            new("UICorner", { CornerRadius = UDim.new(0, 8) }).Parent = btn
+            new("UICorner", { CornerRadius = UDim.new(0, 4) }).Parent = btn
             new("UIStroke", { Color = Color3.fromRGB(10, 132, 255), Thickness = 1, Transparency = 0.5 }).Parent = btn
 
             btn.MouseButton1Click:Connect(function()
-                TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundTransparency = 0.2 }):Play()
+                TweenService:Create(btn, TweenInfo.new(0.1, Enum.EasingStyle.Sine), { BackgroundTransparency = 0.2 }):Play()
                 task.delay(0.1, function()
-                    TweenService:Create(btn, TweenInfo.new(0.2), { BackgroundTransparency = 0.5 }):Play()
+                    TweenService:Create(btn, TweenInfo.new(0.3, Enum.EasingStyle.Sine), { BackgroundTransparency = 0.5 }):Play()
                 end)
                 if callback then callback() end
             end)
@@ -385,6 +384,7 @@ function StreamUI:CreateWindow(title)
                 Size = UDim2.fromOffset(50, 26),
                 Position = UDim2.new(1, -50, 0.5, -13),
                 BackgroundColor3 = state and Color3.fromRGB(10, 132, 255) or Color3.fromRGB(60, 60, 60),
+                BackgroundTransparency = 0.2,
                 Text = "",
                 AutoButtonColor = false,
                 Parent = toggleFrame,
@@ -402,11 +402,11 @@ function StreamUI:CreateWindow(title)
             switchBg.MouseButton1Click:Connect(function()
                 state = not state
                 if state then
-                    TweenService:Create(knob, TweenInfo.new(0.2, Enum.EasingStyle.Quad), { Position = UDim2.new(1, -23, 0.5, -10) }):Play()
+                    TweenService:Create(knob, TweenInfo.new(0.3, Enum.EasingStyle.Quint), { Position = UDim2.new(1, -23, 0.5, -10) }):Play()
                 else
-                    TweenService:Create(knob, TweenInfo.new(0.2, Enum.EasingStyle.Quad), { Position = UDim2.new(0, 3, 0.5, -10) }):Play()
+                    TweenService:Create(knob, TweenInfo.new(0.3, Enum.EasingStyle.Quint), { Position = UDim2.new(0, 3, 0.5, -10) }):Play()
                 end
-                TweenService:Create(switchBg, TweenInfo.new(0.2), { BackgroundColor3 = state and Color3.fromRGB(10, 132, 255) or Color3.fromRGB(60, 60, 60) }):Play()
+                TweenService:Create(switchBg, TweenInfo.new(0.3), { BackgroundColor3 = state and Color3.fromRGB(10, 132, 255) or Color3.fromRGB(60, 60, 60) }):Play()
                 if callback then callback(state) end
             end)
         end
@@ -434,9 +434,10 @@ function StreamUI:CreateWindow(title)
                 Size = UDim2.new(0.6, -10, 0, 30),
                 Position = UDim2.new(0.4, 0, 0.5, -15),
                 BackgroundColor3 = Color3.fromRGB(34, 34, 38),
+                BackgroundTransparency = 0.2,
                 Parent = fieldFrame,
             })
-            new("UICorner", { CornerRadius = UDim.new(0, 8) }).Parent = inputBg
+            new("UICorner", { CornerRadius = UDim.new(0, 4) }).Parent = inputBg
 
             local box = new("TextBox", {
                 Size = UDim2.new(1, -16, 1, 0),
@@ -461,8 +462,7 @@ function StreamUI:CreateWindow(title)
         return sectionObj
     end
 
-    -- Animate in
-    tp(main, UDim2.new(0.5, 0, 0.5, 0), 0.5)
+    tp(main, UDim2.new(0.5, 0, 0.5, 0), 0.6)
 
     return windowObj
 end
