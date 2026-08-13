@@ -120,7 +120,7 @@ local ThemePresets = {
 }
 
 -- Order shown in the Settings tab's theme dropdown
-local THEME_NAMES = { "Vanilla", "Midnight", "Ocean", "Forest", "Monochrome", "Apex" }
+local THEME_NAMES = { "Midnight", "Vanilla", "Ocean", "Forest", "Monochrome", "Apex" }
 
 -- Which decoration style each theme uses (see createDecoCluster below)
 local DECO_STYLES = {
@@ -134,8 +134,9 @@ local DECO_STYLES = {
 
 -- `Theme` is mutated in place (never reassigned) so anything that captured
 -- a reference to it keeps working after a theme switch.
+-- Defaulting to Midnight to match the dark-mode target schema.
 local Theme = {}
-for k, v in pairs(ThemePresets.Vanilla) do
+for k, v in pairs(ThemePresets.Midnight) do
     Theme[k] = v
 end
 
@@ -170,7 +171,7 @@ local function RefreshTheme()
     end
 end
 
-local CurrentThemeName = "Vanilla"
+local CurrentThemeName = "Midnight"
 
 local function SetTheme(name)
     local preset = ThemePresets[name]
@@ -455,11 +456,6 @@ local function makeDraggable(dragHandle, target, onTap)
         end
     end)
 
-    -- Listen globally (not just on dragHandle) so the drag keeps tracking
-    -- even if the finger/cursor moves off the handle's bounds mid-drag.
-    -- Only the latest input position is recorded here -- the actual move
-    -- happens on RenderStepped below, once per rendered frame, so the
-    -- drag stays smooth even if input events arrive unevenly.
     UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             lastInputPos = input.Position
@@ -476,7 +472,6 @@ local StreamUI = {}
 StreamUI.__index = StreamUI
 
 function StreamUI:CreateWindow(title)
-    -- clean up any previous instance so re-running the script doesn't stack windows
     local existing = PlayerGui:FindFirstChild("StreamUI")
     if existing then existing:Destroy() end
 
@@ -487,9 +482,6 @@ function StreamUI:CreateWindow(title)
         Parent = PlayerGui,
     })
 
-    -- Anything that needs to float above the scrollable tab content
-    -- (like an open dropdown list) gets parented here instead, so it
-    -- never gets clipped by a ScrollingFrame's bounds.
     local Overlay = new("Frame", {
         Name = "Overlay",
         Size = UDim2.new(1, 0, 1, 0),
@@ -515,8 +507,6 @@ function StreamUI:CreateWindow(title)
     corner(10).Parent = Main
     themed(stroke(Theme.Border, 1), "Color", "Border").Parent = Main
 
-    -- Apex theme only: an orange -> black diagonal gradient wash across
-    -- the window, layered on top of the flat background color.
     local ApexGradient = new("Frame", {
         Name = "ApexGradient",
         Size = UDim2.new(1, 0, 1, 0),
@@ -548,7 +538,6 @@ function StreamUI:CreateWindow(title)
     }, { corner(10) })
     themed(TopBar, "BackgroundColor3", "SecondaryBg")
 
-    -- square off the bottom corners of the top bar so it blends with Main
     local topBarBlend = new("Frame", {
         Size = UDim2.new(1, 0, 0, 10),
         Position = UDim2.new(0, 0, 1, -10),
@@ -673,10 +662,6 @@ function StreamUI:CreateWindow(title)
         Parent = MiniBadge,
     })
 
-    -- ---------------- DECORATIONS (theme-matched) ----------------
-    -- Purely cosmetic, sits behind the row content (ZIndex 0) so it only
-    -- shows through empty space and never covers a control. Rebuilt
-    -- whenever the theme changes, and hidden while minimized.
     local DecoContainers = {}
     local isMinimized = false
 
@@ -719,7 +704,6 @@ function StreamUI:CreateWindow(title)
         isMinimized = not isMinimized
 
         if isMinimized then
-            -- MINIMIZE: shrink to a small logo badge in the top-left, Quint out over 0.4s
             tween(Main, { Size = MINI_SIZE, Position = MINI_POS }, 0.4)
             TabBar.Visible = false
             PageHolder.Visible = false
@@ -733,7 +717,6 @@ function StreamUI:CreateWindow(title)
 
             MinimizeBtn.Text = "+"
         else
-            -- EXPAND: grow back to the full window, centered, Quint out over 0.4s
             tween(Main, { Size = FULL_SIZE, Position = FULL_POS }, 0.4)
             tween(MiniIcon, { GroupTransparency = 1 }, 0.2)
 
@@ -765,9 +748,6 @@ function StreamUI:CreateWindow(title)
         end
     end)
 
-    -- ---------------- TAB ----------------
-    -- `nameOrConfig` accepts either a plain string ("Main") or a table
-    -- { Name = "Main", Icon = "rbxassetid://..." } if you want a tab icon.
     function Window:CreateTab(nameOrConfig)
         local name, icon
         if type(nameOrConfig) == "table" then
@@ -863,7 +843,6 @@ function StreamUI:CreateWindow(title)
 
         local Tab = {}
 
-        -- row wrapper shared by all elements
         local function baseRow(height)
             local row = new("Frame", {
                 Size = UDim2.new(1, -8, 0, height),
@@ -876,10 +855,10 @@ function StreamUI:CreateWindow(title)
             return row
         end
 
-        -- ---------------- TOGGLE ----------------
         function Tab:CreateToggle(cfg)
             cfg = cfg or {}
-            local Row = baseRow(34)
+            local rowHeight = cfg.Description and 44 or 34
+            local Row = baseRow(rowHeight)
 
             themed(new("TextLabel", {
                 Text = cfg.Title or "Toggle",
@@ -887,10 +866,24 @@ function StreamUI:CreateWindow(title)
                 TextSize = 13,
                 TextColor3 = Theme.TextPrimary,
                 BackgroundTransparency = 1,
-                Size = UDim2.new(1, -50, 1, 0),
+                Size = UDim2.new(1, -50, cfg.Description and 20 or 1, 0),
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Parent = Row,
             }), "TextColor3", "TextPrimary")
+
+            if cfg.Description then
+                themed(new("TextLabel", {
+                    Text = cfg.Description,
+                    Font = FONT,
+                    TextSize = 11,
+                    TextColor3 = Theme.TextDisabled,
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1, -50, 0, 14),
+                    Position = UDim2.fromOffset(0, 18),
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Parent = Row,
+                }), "TextColor3", "TextDisabled")
+            end
 
             local Switch = new("TextButton", {
                 Text = "",
@@ -920,8 +913,6 @@ function StreamUI:CreateWindow(title)
                 if cfg.Callback then cfg.Callback(state) end
             end
 
-            -- Switch/knob colors depend on current on/off state, so they
-            -- can't be a plain themed() copy -- recompute on theme switch.
             onThemeChange(function()
                 Switch.BackgroundColor3 = state and Theme.Enabled or Theme.Disabled
                 Knob.BackgroundColor3 = Theme.Background
@@ -932,16 +923,28 @@ function StreamUI:CreateWindow(title)
             end)
 
             if cfg.Callback then cfg.Callback(state) end
-            return { Set = function(_, v) Switch.MouseButton1Click:Fire() end }
+            return { Set = function(_, v) animateToggle(v) end }
         end
 
-        -- ---------------- SLIDER ----------------
         function Tab:CreateSlider(cfg)
             cfg = cfg or {}
             local min, max = cfg.Min or 0, cfg.Max or 100
+            local step = cfg.Step or 1
+            local suffix = cfg.Suffix or ""
             local value = cfg.Default or min
 
-            local Row = baseRow(44)
+            local precision = 0
+            if step < 1 then
+                local stepStr = tostring(step)
+                local dotIndex = string.find(stepStr, "%.")
+                if dotIndex then
+                    precision = string.len(stepStr) - dotIndex
+                end
+            end
+
+            local rowHeight = cfg.Description and 54 or 44
+            local trackY = cfg.Description and 32 or 28
+            local Row = baseRow(rowHeight)
 
             themed(new("TextLabel", {
                 Text = cfg.Title or "Slider",
@@ -949,26 +952,40 @@ function StreamUI:CreateWindow(title)
                 TextSize = 13,
                 TextColor3 = Theme.TextPrimary,
                 BackgroundTransparency = 1,
-                Size = UDim2.new(1, -50, 0, 20),
+                Size = UDim2.new(1, -60, 0, 20),
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Parent = Row,
             }), "TextColor3", "TextPrimary")
 
+            if cfg.Description then
+                themed(new("TextLabel", {
+                    Text = cfg.Description,
+                    Font = FONT,
+                    TextSize = 11,
+                    TextColor3 = Theme.TextDisabled,
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1, -60, 0, 14),
+                    Position = UDim2.fromOffset(0, 18),
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Parent = Row,
+                }), "TextColor3", "TextDisabled")
+            end
+
             local ValueLabel = themed(new("TextLabel", {
-                Text = tostring(value),
+                Text = tostring(value) .. suffix,
                 Font = FONT,
                 TextSize = 12,
                 TextColor3 = Theme.TextSecondary,
                 BackgroundTransparency = 1,
-                Size = UDim2.fromOffset(50, 20),
-                Position = UDim2.new(1, -50, 0, 0),
+                Size = UDim2.fromOffset(60, 20),
+                Position = UDim2.new(1, -60, 0, 0),
                 TextXAlignment = Enum.TextXAlignment.Right,
                 Parent = Row,
             }), "TextColor3", "TextSecondary")
 
             local Track = new("Frame", {
                 Size = UDim2.new(1, 0, 0, 6),
-                Position = UDim2.fromOffset(0, 28),
+                Position = UDim2.fromOffset(0, trackY),
                 BackgroundColor3 = Theme.TertiaryBg,
                 Parent = Row,
             }, { corner(3) })
@@ -984,9 +1001,15 @@ function StreamUI:CreateWindow(title)
             local dragging = false
             local function setFromX(x)
                 local rel = math.clamp((x - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-                value = math.floor(min + (max - min) * rel)
-                Fill.Size = UDim2.new(rel, 0, 1, 0)
-                ValueLabel.Text = tostring(value)
+                local raw = min + (max - min) * rel
+                value = math.floor(raw / step + 0.5) * step
+                value = math.clamp(value, min, max)
+                
+                Fill.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
+                
+                local formatStr = "%." .. tostring(precision) .. "f"
+                ValueLabel.Text = string.format(formatStr, value) .. suffix
+                
                 if cfg.Callback then cfg.Callback(value) end
             end
 
@@ -1010,7 +1033,6 @@ function StreamUI:CreateWindow(title)
             if cfg.Callback then cfg.Callback(value) end
         end
 
-        -- ---------------- DROPDOWN ----------------
         function Tab:CreateDropdown(cfg)
             cfg = cfg or {}
             local options = cfg.Options or {}
@@ -1042,9 +1064,6 @@ function StreamUI:CreateWindow(title)
             themed(Selector, "TextColor3", "TextSecondary")
             themed(Selector, "BackgroundColor3", "TertiaryBg")
 
-            -- Rendered on the Overlay (a direct child of ScreenGui) instead of
-            -- inside the scrollable page, so it floats on top and is never
-            -- clipped/cut off by the page's ScrollingFrame bounds.
             local ListFrame = new("Frame", {
                 Size = UDim2.fromOffset(0, 0),
                 BackgroundColor3 = Theme.Background,
@@ -1058,8 +1077,6 @@ function StreamUI:CreateWindow(title)
             local ListLayout = new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder })
             ListLayout.Parent = ListFrame
 
-            -- Invisible full-screen button behind the list so tapping
-            -- anywhere else closes the dropdown.
             local Catcher = new("TextButton", {
                 Text = "",
                 Size = UDim2.new(1, 0, 1, 0),
@@ -1117,7 +1134,6 @@ function StreamUI:CreateWindow(title)
             if cfg.Callback and selected then cfg.Callback(selected) end
         end
 
-        -- ---------------- BUTTON ----------------
         function Tab:CreateButton(cfg)
             cfg = cfg or {}
             local Row = baseRow(34)
@@ -1136,7 +1152,6 @@ function StreamUI:CreateWindow(title)
             end)
         end
 
-        -- ---------------- KEYBIND ----------------
         function Tab:CreateKeybind(cfg)
             cfg = cfg or {}
             local currentKey = cfg.Default or Enum.KeyCode.Unknown
@@ -1184,7 +1199,6 @@ function StreamUI:CreateWindow(title)
             end)
         end
 
-        -- ---------------- TEXTBOX ----------------
         function Tab:CreateTextbox(cfg)
             cfg = cfg or {}
             local Row = baseRow(34)
@@ -1231,12 +1245,11 @@ function StreamUI:CreateWindow(title)
             }
         end
 
-        -- ---------------- LABEL ----------------
         function Tab:CreateLabel(text)
             local Row = baseRow(26)
             themed(new("TextLabel", {
                 Text = text or "",
-                Font = FONT,
+                Font = FONT_BOLD,
                 TextSize = 12,
                 TextColor3 = Theme.TextSecondary,
                 BackgroundTransparency = 1,
@@ -1249,21 +1262,19 @@ function StreamUI:CreateWindow(title)
         return Tab
     end
 
-    -- ---------------- SETTINGS TAB (built-in theme picker) ----------------
     do
         local SettingsTab = Window:CreateTab("Settings")
         SettingsTab:CreateLabel("Appearance")
         SettingsTab:CreateDropdown({
             Title = "Theme",
             Options = THEME_NAMES,
-            Default = "Vanilla",
+            Default = "Midnight",
             Callback = function(name)
                 SetTheme(name)
             end,
         })
     end
 
-    -- ---------------- NOTIFICATION ----------------
     function Window:Notify(title, text, duration)
         local NotifHolder = ScreenGui:FindFirstChild("Notifications") or new("Frame", {
             Name = "Notifications",
