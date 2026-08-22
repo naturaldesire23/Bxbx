@@ -1,5 +1,5 @@
--- --- PortalVisuals_UI_Final_v5_StarThemes.lua ---
--- Complete UI Architecture with Dynamic Function Keybinds, Premium Notifications, Full Background Fit, Solid Separators, Profile Card, Scroll Bounds, and Star Themes
+-- PortalVisuals_UI_With_API.lua
+-- Полная версия с экспортом API для расширения
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -11,10 +11,14 @@ local Lighting = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 
+-- Очистка
 if _G.PortalVisuals and _G.PortalVisuals._cleanup then
     _G.PortalVisuals._cleanup()
 end
 
+-- ============================================================
+-- ГЛОБАЛЬНОЕ ХРАНИЛИЩЕ СОСТОЯНИЙ
+-- ============================================================
 _G.PortalVisuals = setmetatable({}, {
     __index = function(_, k)
         return rawget(_G.PortalVisuals, "_enabled_" .. k) or false
@@ -44,6 +48,9 @@ _G.PortalVisuals._disableFuncs = {}
 _G.PortalVisuals._listeners = {}
 _G.PortalVisuals._keybinds = {}
 
+-- ============================================================
+-- ТЕМЫ
+-- ============================================================
 local Themes = {
     Light = {
         GlassBg = Color3.fromRGB(245, 248, 252), GlassLeft = Color3.fromRGB(240, 244, 250),
@@ -182,6 +189,9 @@ local function SetTheme(Name)
     end
 end
 
+-- ============================================================
+-- УТИЛИТЫ
+-- ============================================================
 local Utility = {}
 function Utility:Create(Class, Props)
     local Obj = Instance.new(Class)
@@ -219,6 +229,9 @@ local WatermarkGui = Utility:Create("ScreenGui", {
     DisplayOrder = 100000
 })
 
+-- ============================================================
+-- WATERMARK
+-- ============================================================
 local WMCard = Utility:Create("Frame", {
     Name = "Card",
     Parent = WatermarkGui,
@@ -267,6 +280,9 @@ task.spawn(function()
     end
 end)
 
+-- ============================================================
+-- ОСНОВНОЕ МЕНЮ
+-- ============================================================
 local Main = Utility:Create("Frame", {
     Name = "Main",
     Parent = ScreenGui,
@@ -769,6 +785,9 @@ local function Notify(title, body, duration)
     task.delay(duration, Dismiss)
 end
 
+-- ============================================================
+-- СТАНДАРТНЫЕ ВКЛАДКИ
+-- ============================================================
 local MContent = CreateSection(MainPage, "Actions")
 
 local function RandomFunction()
@@ -796,6 +815,9 @@ local SContent = CreateSection(SettingsPage, "Settings Options")
 CreateTextBox(SContent, "Custom Webhook", "URL...", "", function(text) print("Webhook set: " .. text) end)
 CreateSlider(SContent, "Max Particle Count", 100, 1000, 500, function(val) print("Particle cap: " .. val) end)
 
+-- ============================================================
+-- МЕНЮ КЛЮЧ
+-- ============================================================
 local MenuKey = Enum.KeyCode.K
 local IsOpen = true
 local blurTween = nil
@@ -819,6 +841,9 @@ end
 
 _G.PortalVisuals._keybinds[MenuKey] = ToggleUI
 
+-- ============================================================
+-- НАСТРОЙКИ (РАСШИРЕННЫЕ)
+-- ============================================================
 local BGSection = CreateSection(SettingsPage, "Background Asset")
 CreateTextBox(BGSection, "Asset ID", "e.g. 12345678", "", function(text) SetBackgroundAsset(text) end)
 CreateTextBox(BGSection, "Media URL / ID", "rbxassetid or numeric ID", "", function(text) SetBackgroundMedia(text) end)
@@ -845,6 +870,9 @@ local MenuKeybindFrame = CreateKeybind(SContent, "Toggle Menu Key", Enum.KeyCode
     _G.PortalVisuals._keybinds[MenuKey] = ToggleUI
 end)
 
+-- ============================================================
+-- ЗАПУСК
+-- ============================================================
 Main.Visible = true
 Main.Size = UDim2.new(0, 720, 0, 0)
 Utility:Tween(Blur, {Size = 20}, 1.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -857,6 +885,47 @@ if Tabs[1] then
     if Tabs[1].Page then Tabs[1].Page.Visible = true end
 end
 
+-- ============================================================
+-- ЭКСПОРТ API ДЛЯ РАСШИРЕНИЯ
+-- ============================================================
+_G.PortalVisuals._addTab = function(name)
+    local page = CreatePage(name)
+    AddTab(name, page)
+    return page
+end
+
+_G.PortalVisuals._createSection = function(parent, title)
+    return CreateSection(parent, title)
+end
+
+_G.PortalVisuals._toggle = function(parent, label, key, default)
+    local frame, control = CreateToggle(parent, label, key, default)
+    return frame, control
+end
+
+_G.PortalVisuals._slider = function(parent, label, min, max, default, callback)
+    return CreateSlider(parent, label, min, max, default, callback)
+end
+
+_G.PortalVisuals._textbox = function(parent, label, placeholder, default, callback)
+    return CreateTextBox(parent, label, placeholder, default, callback)
+end
+
+_G.PortalVisuals._keybind = function(parent, label, defaultKey, callback)
+    return CreateKeybind(parent, label, defaultKey, callback)
+end
+
+_G.PortalVisuals._notify = function(title, body, duration)
+    Notify(title, body, duration)
+end
+
+_G.PortalVisuals._settingsPage = SettingsPage
+_G.PortalVisuals._mainPage = MainPage
+_G.PortalVisuals._visualsPage = VisualsPage
+
+-- ============================================================
+-- ОЧИСТКА
+-- ============================================================
 _G.PortalVisuals._cleanup = function()
     ClearStars()
     if layoutConn then layoutConn:Disconnect() end
@@ -870,3 +939,7 @@ end
 task.delay(1.4, function()
     Notify("Portal Visuals", "Recovery Engine Initialized", 4)
 end)
+
+print("=== PortalVisuals UI Loaded ===")
+print("API exported to _G.PortalVisuals")
+print("Available methods: _addTab, _createSection, _toggle, _slider, _textbox, _keybind, _notify")
