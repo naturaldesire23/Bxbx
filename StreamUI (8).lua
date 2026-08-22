@@ -1,46 +1,45 @@
 -- ╔══════════════════════════════════════════════════╗
--- ║           COMET SS  ·  UI LIBRARY v3.0          ║
+-- ║           COMET SS  ·  UI LIBRARY v3.1           ║
 -- ║     Explicit layout · No AutomaticSize drift     ║
+-- ║       Removed loadstring dependency for init     ║
 -- ╚══════════════════════════════════════════════════╝
 
 local CometLib = {}
 CometLib.__index = CometLib
 
--- ─── SERVICES ────────────────────────────────────────────────
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService       = game:GetService("RunService")
+local CoreGui         = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 local Mouse       = LocalPlayer:GetMouse()
 
--- ─── ICONS (Lucide from document) ────────────────────────────
 local Icons = {
     Settings  = "rbxassetid://14007344336",
-    Close     = "rbxassetid://10747384394",   -- lucide-x
-    Minimize  = "rbxassetid://10734896206",   -- lucide-minus
-    Check     = "rbxassetid://10709790644",   -- lucide-check
-    ChevronD  = "rbxassetid://10709790948",   -- lucide-chevron-down
-    Circle    = "rbxassetid://10709798174",   -- lucide-circle
-    Shield    = "rbxassetid://10734951847",   -- lucide-shield
-    Eye       = "rbxassetid://10723346959",   -- lucide-eye
-    Gamepad   = "rbxassetid://10723395457",   -- lucide-gamepad-2
-    Sliders   = "rbxassetid://10734963400",   -- lucide-sliders
-    Globe     = "rbxassetid://10709761530",   -- lucide-anchor (misc)
-    Bell      = "rbxassetid://10709775704",   -- lucide-bell
-    Palette   = "rbxassetid://10734910430",   -- lucide-palette
-    Image     = "rbxassetid://10723415040",   -- lucide-image
-    Monitor   = "rbxassetid://10734896881",   -- lucide-monitor
-    Keyboard  = "rbxassetid://10723416765",   -- lucide-keyboard
-    User      = "rbxassetid://10747373176",   -- lucide-user
-    Home      = "rbxassetid://10723407389",   -- lucide-home
-    Zap       = "rbxassetid://10723345749",   -- lucide-electricity
-    Star      = "rbxassetid://10734966248",   -- lucide-star
-    Trash     = "rbxassetid://10747362393",   -- lucide-trash
+    Close     = "rbxassetid://10747384394",
+    Minimize  = "rbxassetid://10734896206",
+    Check     = "rbxassetid://10709790644",
+    ChevronD  = "rbxassetid://10709790948",
+    Circle    = "rbxassetid://10709798174",
+    Shield    = "rbxassetid://10734951847",
+    Eye       = "rbxassetid://10723346959",
+    Gamepad   = "rbxassetid://10723395457",
+    Sliders   = "rbxassetid://10734963400",
+    Globe     = "rbxassetid://10709761530",
+    Bell      = "rbxassetid://10709775704",
+    Palette   = "rbxassetid://10734910430",
+    Image     = "rbxassetid://10723415040",
+    Monitor   = "rbxassetid://10734896881",
+    Keyboard  = "rbxassetid://10723416765",
+    User      = "rbxassetid://10747373176",
+    Home      = "rbxassetid://10723407389",
+    Zap       = "rbxassetid://10723345749",
+    Star      = "rbxassetid://10734966248",
+    Trash     = "rbxassetid://10747362393",
 }
 
--- ─── THEMES ──────────────────────────────────────────────────
 local Themes = {
     Comet   = { Accent="#6C63FF", BG="#111320", Panel="#181B2E", Card="#1E2238", Border="#2A2E4A", Text="#E2E8F0", Sub="#64748B" },
     Crimson = { Accent="#FF4A4A", BG="#0F1015", Panel="#18121A", Card="#20161E", Border="#3A202A", Text="#E2E8F0", Sub="#64748B" },
@@ -54,7 +53,6 @@ local Themes = {
 
 local function H(hex) return Color3.fromHex(hex) end
 
--- ─── UTILITY ─────────────────────────────────────────────────
 local function Tween(obj, props, t, style, dir)
     TweenService:Create(obj,
         TweenInfo.new(t or 0.18, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out),
@@ -93,7 +91,6 @@ local function MakeDraggable(handle, frame)
     end)
 end
 
--- Icon helper — white ImageLabel
 local function Img(icon, size, parent, pos)
     return New("ImageLabel",{
         Image=icon, Size=UDim2.new(0,size,0,size),
@@ -103,7 +100,6 @@ local function Img(icon, size, parent, pos)
     })
 end
 
--- ─── TOAST ───────────────────────────────────────────────────
 local function Toast(gui, msg, theme)
     local existing = gui:FindFirstChild("__CometToast")
     if existing then existing:Destroy() end
@@ -133,16 +129,12 @@ local function Toast(gui, msg, theme)
     end)
 end
 
--- ═════════════════════════════════════════════════════════════
--- WINDOW
--- ═════════════════════════════════════════════════════════════
-
-local W = 580   -- window width
-local H_ = 420  -- window height
-local TB = 38   -- titlebar height
-local TAB = 34  -- tabbar height
-local SB = 22   -- statusbar height
-local CONTENT_H = H_ - TB - TAB - SB  -- 326
+local W = 580
+local H_ = 420
+local TB = 38
+local TAB = 34
+local SB = 22
+local CONTENT_H = H_ - TB - TAB - SB
 
 function CometLib.new(opts)
     opts = opts or {}
@@ -150,30 +142,28 @@ function CometLib.new(opts)
 
     local themeName = opts.Theme or "Comet"
     self._themeName = themeName
-    self._theme = Themes[themeName]
+    self._theme = Themes[themeName] or Themes.Comet
     local T = self._theme
 
-    self._tabs      = {}   -- ordered list of tab names
-    self._tabBtns   = {}   -- name → {frame, label, icon, underline}
-    self._tabPanes  = {}   -- name → ScrollingFrame
+    self._tabs      = {}
+    self._tabBtns   = {}
+    self._tabPanes  = {}
     self._activeTab = nil
     self.Visible    = true
     self.ToggleKey  = opts.ToggleKey or Enum.KeyCode.RightShift
 
-    -- ── ScreenGui ────────────────────────────────────────────
     local gui = New("ScreenGui",{
         Name="CometUI", ResetOnSpawn=false,
         ZIndexBehavior=Enum.ZIndexBehavior.Sibling,
     })
-    -- protect if available
+    
     pcall(function()
         if syn and syn.protect_gui then syn.protect_gui(gui) end
     end)
-    pcall(function() gui.Parent = game:GetService("CoreGui") end)
+    pcall(function() gui.Parent = CoreGui end)
     if not gui.Parent then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
     self._gui = gui
 
-    -- ── Background image (off by default) ────────────────────
     self._bgImg = New("ImageLabel",{
         Name="CometBG", Size=UDim2.new(1,0,1,0),
         BackgroundTransparency=1, ScaleType=Enum.ScaleType.Crop,
@@ -181,7 +171,6 @@ function CometLib.new(opts)
     })
     self._blur = New("BlurEffect",{Size=0,Parent=game:GetService("Lighting")})
 
-    -- ── Main frame ───────────────────────────────────────────
     local win = New("Frame",{
         Name="CometWindow",
         Size=UDim2.new(0,W,0,H_),
@@ -191,11 +180,9 @@ function CometLib.new(opts)
         ZIndex=10, Parent=gui,
         ClipsDescendants=true,
     },{Corner(12)})
-    -- outer accent border
     Stroke(T.Accent,1,0.55).Parent=win
     self._win = win
 
-    -- ── TITLEBAR ─────────────────────────────────────────────
     local titlebar = New("Frame",{
         Size=UDim2.new(1,0,0,TB),
         Position=UDim2.new(0,0,0,0),
@@ -203,7 +190,6 @@ function CometLib.new(opts)
         BackgroundTransparency=0.05,
         ZIndex=11, Parent=win,
     })
-    -- cover bottom-radius of titlebar
     New("Frame",{Size=UDim2.new(1,0,0,8),Position=UDim2.new(0,0,1,-8),
         BackgroundColor3=H(T.Panel),BackgroundTransparency=0.05,ZIndex=11,Parent=titlebar})
     New("Frame",{Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),
@@ -211,7 +197,6 @@ function CometLib.new(opts)
 
     MakeDraggable(titlebar, win)
 
-    -- Logo
     local logo = New("Frame",{
         Size=UDim2.new(0,20,0,20),
         Position=UDim2.new(0,12,0.5,-10),
@@ -220,7 +205,6 @@ function CometLib.new(opts)
     New("TextLabel",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,
         Text="C",TextColor3=Color3.new(1,1,1),TextSize=12,Font=Enum.Font.GothamBold,ZIndex=13,Parent=logo})
 
-    -- Title
     New("TextLabel",{
         Size=UDim2.new(0,160,1,0), Position=UDim2.new(0,40,0,0),
         BackgroundTransparency=1, Text=opts.Title or "Comet SS",
@@ -234,8 +218,6 @@ function CometLib.new(opts)
         TextXAlignment=Enum.TextXAlignment.Left, ZIndex=12, Parent=titlebar,
     })
 
-    -- ── Window buttons (explicit positions, icon images) ─────
-    -- MINIMIZE
     local minBtn = New("TextButton",{
         Size=UDim2.new(0,26,0,22),
         Position=UDim2.new(1,-62,0.5,-11),
@@ -246,7 +228,6 @@ function CometLib.new(opts)
     Img(Icons.Minimize,12,minBtn,UDim2.new(0.5,-6,0.5,-6))
     self._minBtn = minBtn
 
-    -- CLOSE
     local closeBtn = New("TextButton",{
         Size=UDim2.new(0,26,0,22),
         Position=UDim2.new(1,-32,0.5,-11),
@@ -254,7 +235,7 @@ function CometLib.new(opts)
         BackgroundTransparency=0.2,
         Text="", ZIndex=12, Parent=titlebar,
     },{Corner(6)})
-    local closeIcon = Img(Icons.Close,12,closeBtn,UDim2.new(0.5,-6,0.5,-6))
+    Img(Icons.Close,12,closeBtn,UDim2.new(0.5,-6,0.5,-6))
     self._closeBtn = closeBtn
 
     minBtn.MouseEnter:Connect(function() Tween(minBtn,{BackgroundColor3=H("#F59E0B"),BackgroundTransparency=0}) end)
@@ -262,7 +243,6 @@ function CometLib.new(opts)
     closeBtn.MouseEnter:Connect(function() Tween(closeBtn,{BackgroundColor3=H("#F87171"),BackgroundTransparency=0}) end)
     closeBtn.MouseLeave:Connect(function() Tween(closeBtn,{BackgroundColor3=H("#2A1414"),BackgroundTransparency=0.2}) end)
 
-    -- minimize logic
     local minimized = false
     minBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
@@ -277,7 +257,6 @@ function CometLib.new(opts)
         Toast(gui,"Closed · press "..self.ToggleKey.Name.." to reopen",T)
     end)
 
-    -- ── TABBAR ───────────────────────────────────────────────
     local tabBar = New("Frame",{
         Size=UDim2.new(1,0,0,TAB),
         Position=UDim2.new(0,0,0,TB),
@@ -287,7 +266,6 @@ function CometLib.new(opts)
     })
     New("Frame",{Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),
         BackgroundColor3=H(T.Border),BackgroundTransparency=0.3,ZIndex=12,Parent=tabBar})
-    -- cover top-radius of tabbar
     New("Frame",{Size=UDim2.new(1,0,0,8),Position=UDim2.new(0,0,0,0),
         BackgroundColor3=H(T.Panel),BackgroundTransparency=0.15,ZIndex=11,Parent=tabBar})
 
@@ -302,7 +280,6 @@ function CometLib.new(opts)
         Parent=tabScroll})
     self._tabScroll = tabScroll
 
-    -- ── CONTENT AREA ─────────────────────────────────────────
     local content = New("Frame",{
         Size=UDim2.new(1,0,0,CONTENT_H),
         Position=UDim2.new(0,0,0,TB+TAB),
@@ -312,7 +289,6 @@ function CometLib.new(opts)
     })
     self._content = content
 
-    -- ── STATUS BAR ───────────────────────────────────────────
     local sb = New("Frame",{
         Size=UDim2.new(1,0,0,SB),
         Position=UDim2.new(0,0,1,-SB),
@@ -324,17 +300,15 @@ function CometLib.new(opts)
         BackgroundTransparency=0.1,ZIndex=11,Parent=sb})
     New("Frame",{Size=UDim2.new(1,0,0,1),BackgroundColor3=H(T.Border),
         BackgroundTransparency=0.4,ZIndex=12,Parent=sb})
-    -- green dot
     New("Frame",{Size=UDim2.new(0,6,0,6),Position=UDim2.new(0,10,0.5,-3),
         BackgroundColor3=H("#4ADE80"),ZIndex=13,Parent=sb},{Corner(99)})
     self._statusLabel = New("TextLabel",{
         Size=UDim2.new(1,-24,1,0), Position=UDim2.new(0,22,0,0),
-        BackgroundTransparency=1, Text="Attached  ·  Comet SS v3.0  ·  Theme: "..themeName,
+        BackgroundTransparency=1, Text="Attached  ·  Comet SS v3.1  ·  Theme: "..themeName,
         TextColor3=H(T.Sub), TextSize=10, Font=Enum.Font.GothamMedium,
         TextXAlignment=Enum.TextXAlignment.Left, ZIndex=13, Parent=sb,
     })
 
-    -- ── TOGGLE KEY ───────────────────────────────────────────
     UserInputService.InputBegan:Connect(function(input, gpe)
         if gpe then return end
         if input.KeyCode == self.ToggleKey then
@@ -351,17 +325,12 @@ function CometLib.new(opts)
     return self
 end
 
--- ═════════════════════════════════════════════════════════════
--- ADD TAB
--- ═════════════════════════════════════════════════════════════
-
-local TAB_W = 88   -- fixed tab button width
+local TAB_W = 88
 
 function CometLib:AddTab(name, iconId)
     local T   = self._theme
     local idx = #self._tabs + 1
 
-    -- Tab button (fixed width so nothing drifts)
     local btn = New("TextButton",{
         Name=name.."_Tab",
         Size=UDim2.new(0,TAB_W,0,TAB-6),
@@ -372,7 +341,6 @@ function CometLib:AddTab(name, iconId)
         Parent=self._tabScroll,
     },{Corner(6)})
 
-    -- Icon
     if iconId then
         New("ImageLabel",{
             Image=(type(iconId)=="number") and ("rbxassetid://"..iconId) or iconId,
@@ -384,7 +352,6 @@ function CometLib:AddTab(name, iconId)
         })
     end
 
-    -- Label — fixed position so it never overlaps
     local lx = iconId and 26 or 10
     local lw = iconId and (TAB_W - lx - 4) or (TAB_W - 20)
     local lbl = New("TextLabel",{
@@ -397,7 +364,6 @@ function CometLib:AddTab(name, iconId)
         ZIndex=14, Parent=btn,
     })
 
-    -- Active underline
     local uline = New("Frame",{
         Size=UDim2.new(1,-10,0,2),
         Position=UDim2.new(0,5,1,-2),
@@ -406,10 +372,9 @@ function CometLib:AddTab(name, iconId)
         ZIndex=14, Parent=btn,
     },{Corner(2)})
 
-    -- Pane
     local pane = New("ScrollingFrame",{
         Name=name.."_Pane",
-        Size=UDim2.new(1,0,1,-SB),   -- leave room for statusbar
+        Size=UDim2.new(1,0,1,-SB),
         Position=UDim2.new(0,0,0,0),
         BackgroundTransparency=1,
         ZIndex=12,
@@ -426,10 +391,8 @@ function CometLib:AddTab(name, iconId)
     New("UIPadding",{PaddingTop=UDim.new(0,8),PaddingBottom=UDim.new(0,8),
         PaddingLeft=UDim.new(0,10),PaddingRight=UDim.new(0,10),Parent=pane})
 
-    -- Update canvas width
     New("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,SortOrder=Enum.SortOrder.LayoutOrder,Parent=self._tabScroll})
 
-    -- Click
     btn.MouseButton1Click:Connect(function() self:_select(name) end)
     btn.MouseEnter:Connect(function()
         if self._activeTab ~= name then
@@ -465,12 +428,8 @@ function CometLib:_select(name)
     for n, p in pairs(self._tabPanes) do p.Visible = n==name end
 end
 
--- ═════════════════════════════════════════════════════════════
--- ELEMENT BUILDERS
--- ═════════════════════════════════════════════════════════════
-
-local ELEM_H = 38   -- standard element height
-local ELEM_W = W - 28  -- element width (pane width minus padding*2)
+local ELEM_H = 38
+local ELEM_W = W - 28
 
 function CometLib:_tabAPI(pane)
     local api  = {}
@@ -486,7 +445,6 @@ function CometLib:_tabAPI(pane)
         },{Corner(8), Stroke(T.Border,1,0.5)})
     end
 
-    -- ── SECTION ────────────────────────────────────────────
     function api:AddSection(text)
         New("TextLabel",{
             Size=UDim2.new(1,0,0,18),
@@ -499,7 +457,6 @@ function CometLib:_tabAPI(pane)
         return api
     end
 
-    -- ── BUTTON ─────────────────────────────────────────────
     function api:AddButton(label, desc, callback)
         local row = New("TextButton",{
             Size=UDim2.new(1,0,0,ELEM_H),
@@ -508,7 +465,6 @@ function CometLib:_tabAPI(pane)
             Text="", ZIndex=15, Parent=pane,
         },{Corner(8), Stroke(T.Border,1,0.5)})
 
-        -- label
         New("TextLabel",{
             Size=UDim2.new(0,260,0,18),Position=UDim2.new(0,12,0,6),
             BackgroundTransparency=1,Text=label,
@@ -524,7 +480,6 @@ function CometLib:_tabAPI(pane)
             })
         end
 
-        -- right badge
         local badge = New("Frame",{
             Size=UDim2.new(0,70,0,22),
             Position=UDim2.new(1,-80,0.5,-11),
@@ -546,7 +501,6 @@ function CometLib:_tabAPI(pane)
         return api
     end
 
-    -- ── TOGGLE ─────────────────────────────────────────────
     function api:AddToggle(label, desc, default, callback)
         local val = default or false
         local row = ElemBase()
@@ -590,7 +544,6 @@ function CometLib:_tabAPI(pane)
         return {Set=set, Get=function() return val end}
     end
 
-    -- ── SLIDER ─────────────────────────────────────────────
     function api:AddSlider(label, desc, min_, max_, default, callback)
         local val = default or min_
         local row = ElemBase(48)
@@ -651,12 +604,10 @@ function CometLib:_tabAPI(pane)
         return {Get=function() return val end}
     end
 
-    -- ── DROPDOWN ───────────────────────────────────────────
     function api:AddDropdown(label, desc, options, default, callback)
         local sel   = default or options[1]
         local open  = false
 
-        -- wrapper clips the dropdown list scroll
         local wrap = New("Frame",{
             Size=UDim2.new(1,0,0,ELEM_H),
             BackgroundTransparency=1, ZIndex=15,
@@ -731,7 +682,6 @@ function CometLib:_tabAPI(pane)
             ob.MouseButton1Click:Connect(function()
                 sel=opt; selLbl.Text=opt; open=false; list.Visible=false
                 Tween(arrow,{Rotation=0})
-                -- reset colors
                 for _,c in ipairs(list:GetChildren()) do
                     if c:IsA("TextButton") then
                         local a=c.Text==sel
@@ -746,7 +696,6 @@ function CometLib:_tabAPI(pane)
         row.MouseButton1Click:Connect(function()
             open=not open; list.Visible=open
             Tween(arrow,{Rotation=open and 180 or 0})
-            -- bring parent pane ZIndex up so list shows over siblings
             wrap.ZIndex=open and 40 or 15
         end)
         row.MouseEnter:Connect(function() Tween(row,{BackgroundTransparency=0.1}) end)
@@ -755,7 +704,6 @@ function CometLib:_tabAPI(pane)
         return {Get=function() return sel end}
     end
 
-    -- ── INPUT ──────────────────────────────────────────────
     function api:AddInput(label, desc, placeholder, callback)
         local row = ElemBase(48)
         New("TextLabel",{
@@ -782,7 +730,6 @@ function CometLib:_tabAPI(pane)
         return {Get=function() return box.Text end, Set=function(v) box.Text=v end}
     end
 
-    -- ── KEYBIND ────────────────────────────────────────────
     function api:AddKeybind(label, desc, default, callback)
         local key=default or Enum.KeyCode.Unknown
         local listening=false
@@ -814,7 +761,6 @@ function CometLib:_tabAPI(pane)
         return {Get=function() return key end}
     end
 
-    -- ── LABEL / SEPARATOR ──────────────────────────────────
     function api:AddLabel(text)
         New("TextLabel",{
             Size=UDim2.new(1,0,0,28),
@@ -834,28 +780,20 @@ function CometLib:_tabAPI(pane)
     return api
 end
 
--- ═════════════════════════════════════════════════════════════
--- BUILT-IN SETTINGS TAB
--- ═════════════════════════════════════════════════════════════
-
 function CometLib:AddSettingsTab()
     local T    = self._theme
     local stab = self:AddTab("Settings", Icons.Settings)
 
-    -- ─ Themes ─
     stab:AddSection("Themes")
     local themeNames = {}
     for k in pairs(Themes) do table.insert(themeNames, k) end
     table.sort(themeNames)
 
     stab:AddDropdown("Color Theme","Pick a theme preset",themeNames,self._themeName,function(name)
-        -- swap colors live on all existing elements is complex in pure Lua
-        -- instead notify and instruct to re-init (common pattern for Roblox libs)
         Toast(self._gui,"Theme '"..name.."' will apply on next load.\nSet Theme='"..name.."' in .new()",T)
         self._statusLabel.Text = "Theme: "..name.." (restart to apply)"
     end)
 
-    -- ─ Background ─
     stab:AddSection("Background Image")
     local bgInp = stab:AddInput("Asset ID or URL","rbxassetid://XXXXX or https://...","rbxassetid://10709752035",nil)
     stab:AddButton("Apply Background","Set window background image",function()
@@ -879,7 +817,6 @@ function CometLib:AddSettingsTab()
         Toast(self._gui,"Background removed",T)
     end)
 
-    -- ─ Window ─
     stab:AddSection("Window Controls")
     stab:AddToggle("Show Minimize Button",nil,true,function(v)
         self._minBtn.Visible=v
@@ -892,7 +829,6 @@ function CometLib:AddSettingsTab()
         self._win.BackgroundTransparency = map[v] or 0.06
     end)
 
-    -- ─ Keybind ─
     stab:AddSection("Toggle Keybind")
     stab:AddKeybind("Open / Close","Press to rebind",self.ToggleKey,function(k)
         self.ToggleKey=k
@@ -902,10 +838,8 @@ function CometLib:AddSettingsTab()
     return stab
 end
 
--- ─── PUBLIC NOTIFY ───────────────────────────────────────────
 function CometLib:Notify(msg, duration)
     Toast(self._gui, msg, self._theme)
 end
 
 return CometLib
-```
