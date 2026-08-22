@@ -1,945 +1,1174 @@
--- PortalVisuals_UI_With_API.lua
--- Полная версия с экспортом API для расширения
+-- PortalVisuals_Lib.lua
+-- UI Library — loadstring-compatible, full public API
+-- Usage:
+--   local PV = loadstring(game:HttpGet("YOUR_RAW_URL"))()
+--   local win = PV.new("My Hub")
+--   local tab = win:Tab("Combat")
+--   local sec = tab:Section("Aimbot")
+--   sec:Toggle("Silent Aim", "SilentAim", false)
+--   sec:Slider("FOV", 1, 360, 90, function(v) ... end)
 
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
+local Players          = game:GetService("Players")
+local TweenService     = game:GetService("TweenService")
+local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local Stats = game:GetService("Stats")
-local CoreGui = game:GetService("CoreGui")
-local Lighting = game:GetService("Lighting")
+local Stats            = game:GetService("Stats")
+local CoreGui          = game:GetService("CoreGui")
+local Lighting         = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Очистка
-if _G.PortalVisuals and _G.PortalVisuals._cleanup then
-    _G.PortalVisuals._cleanup()
+-- ============================================================
+-- INTERNAL STATE CLEANUP
+-- ============================================================
+if _G._PortalVisualsLib and _G._PortalVisualsLib._cleanup then
+    pcall(_G._PortalVisualsLib._cleanup)
 end
+_G._PortalVisualsLib = {}
+local _lib = _G._PortalVisualsLib
 
 -- ============================================================
--- ГЛОБАЛЬНОЕ ХРАНИЛИЩЕ СОСТОЯНИЙ
--- ============================================================
-_G.PortalVisuals = setmetatable({}, {
-    __index = function(_, k)
-        return rawget(_G.PortalVisuals, "_enabled_" .. k) or false
-    end,
-    __newindex = function(t, k, v)
-        if type(k) ~= "string" then return end
-        rawset(_G.PortalVisuals, "_enabled_" .. k, v)
-        if v then
-            if _G.PortalVisuals._enableFuncs and _G.PortalVisuals._enableFuncs[k] then
-                task.spawn(_G.PortalVisuals._enableFuncs[k])
-            end
-        else
-            if _G.PortalVisuals._disableFuncs and _G.PortalVisuals._disableFuncs[k] then
-                task.spawn(_G.PortalVisuals._disableFuncs[k])
-            end
-        end
-        if _G.PortalVisuals._listeners and _G.PortalVisuals._listeners[k] then
-            for _, listener in ipairs(_G.PortalVisuals._listeners[k]) do
-                task.spawn(listener, v)
-            end
-        end
-    end
-})
-
-_G.PortalVisuals._enableFuncs = {}
-_G.PortalVisuals._disableFuncs = {}
-_G.PortalVisuals._listeners = {}
-_G.PortalVisuals._keybinds = {}
-
--- ============================================================
--- ТЕМЫ
+-- THEMES
 -- ============================================================
 local Themes = {
-    Light = {
-        GlassBg = Color3.fromRGB(245, 248, 252), GlassLeft = Color3.fromRGB(240, 244, 250),
-        GlassCard = Color3.fromRGB(255, 255, 255), Accent = Color3.fromRGB(0, 122, 255),
-        Text = Color3.fromRGB(15, 20, 30), TextSoft = Color3.fromRGB(80, 90, 110),
-        TextMuted = Color3.fromRGB(140, 150, 170), Online = Color3.fromRGB(50, 200, 100),
-        TrackOff = Color3.fromRGB(200, 205, 215), TrackOn = Color3.fromRGB(0, 122, 255),
-        StatValue = Color3.fromRGB(0, 100, 200), Stroke = Color3.fromRGB(255, 255, 255),
-        Shine = Color3.fromRGB(255, 255, 255), Glow = Color3.fromRGB(100, 180, 255),
+    Dark = {
+        GlassBg   = Color3.fromRGB(20, 22, 28),    GlassLeft = Color3.fromRGB(25, 27, 35),
+        GlassCard  = Color3.fromRGB(35, 38, 48),    Accent    = Color3.fromRGB(0, 150, 255),
+        Text       = Color3.fromRGB(240, 245, 255),  TextSoft  = Color3.fromRGB(180, 190, 210),
+        TextMuted  = Color3.fromRGB(120, 130, 150),  Online    = Color3.fromRGB(50, 220, 120),
+        TrackOff   = Color3.fromRGB(60, 65, 80),     TrackOn   = Color3.fromRGB(0, 150, 255),
+        StatValue  = Color3.fromRGB(80, 170, 255),   Stroke    = Color3.fromRGB(60, 65, 80),
+        Shine      = Color3.fromRGB(255, 255, 255),  Glow      = Color3.fromRGB(0, 100, 200),
         Stars = false
     },
-    Dark = {
-        GlassBg = Color3.fromRGB(20, 22, 28), GlassLeft = Color3.fromRGB(25, 27, 35),
-        GlassCard = Color3.fromRGB(35, 38, 48), Accent = Color3.fromRGB(0, 150, 255),
-        Text = Color3.fromRGB(240, 245, 255), TextSoft = Color3.fromRGB(180, 190, 210),
-        TextMuted = Color3.fromRGB(120, 130, 150), Online = Color3.fromRGB(50, 220, 120),
-        TrackOff = Color3.fromRGB(60, 65, 80), TrackOn = Color3.fromRGB(0, 150, 255),
-        StatValue = Color3.fromRGB(80, 170, 255), Stroke = Color3.fromRGB(60, 65, 80),
-        Shine = Color3.fromRGB(255, 255, 255), Glow = Color3.fromRGB(0, 100, 200),
+    Light = {
+        GlassBg   = Color3.fromRGB(245, 248, 252),  GlassLeft = Color3.fromRGB(240, 244, 250),
+        GlassCard  = Color3.fromRGB(255, 255, 255),  Accent    = Color3.fromRGB(0, 122, 255),
+        Text       = Color3.fromRGB(15, 20, 30),     TextSoft  = Color3.fromRGB(80, 90, 110),
+        TextMuted  = Color3.fromRGB(140, 150, 170),  Online    = Color3.fromRGB(50, 200, 100),
+        TrackOff   = Color3.fromRGB(200, 205, 215),  TrackOn   = Color3.fromRGB(0, 122, 255),
+        StatValue  = Color3.fromRGB(0, 100, 200),    Stroke    = Color3.fromRGB(255, 255, 255),
+        Shine      = Color3.fromRGB(255, 255, 255),  Glow      = Color3.fromRGB(100, 180, 255),
         Stars = false
     },
     Forest = {
-        GlassBg = Color3.fromRGB(15, 30, 18), GlassLeft = Color3.fromRGB(20, 35, 22),
-        GlassCard = Color3.fromRGB(28, 55, 35), Accent = Color3.fromRGB(50, 210, 75),
-        Text = Color3.fromRGB(210, 245, 220), TextSoft = Color3.fromRGB(130, 175, 140),
-        TextMuted = Color3.fromRGB(80, 125, 90), Online = Color3.fromRGB(70, 230, 100),
-        TrackOff = Color3.fromRGB(45, 75, 50), TrackOn = Color3.fromRGB(50, 210, 75),
-        StatValue = Color3.fromRGB(60, 200, 85), Stroke = Color3.fromRGB(40, 80, 48),
-        Shine = Color3.fromRGB(160, 220, 170), Glow = Color3.fromRGB(25, 130, 45),
+        GlassBg   = Color3.fromRGB(15, 30, 18),     GlassLeft = Color3.fromRGB(20, 35, 22),
+        GlassCard  = Color3.fromRGB(28, 55, 35),     Accent    = Color3.fromRGB(50, 210, 75),
+        Text       = Color3.fromRGB(210, 245, 220),  TextSoft  = Color3.fromRGB(130, 175, 140),
+        TextMuted  = Color3.fromRGB(80, 125, 90),    Online    = Color3.fromRGB(70, 230, 100),
+        TrackOff   = Color3.fromRGB(45, 75, 50),     TrackOn   = Color3.fromRGB(50, 210, 75),
+        StatValue  = Color3.fromRGB(60, 200, 85),    Stroke    = Color3.fromRGB(40, 80, 48),
+        Shine      = Color3.fromRGB(160, 220, 170),  Glow      = Color3.fromRGB(25, 130, 45),
         Stars = false
     },
     Purple = {
-        GlassBg = Color3.fromRGB(22, 18, 35), GlassLeft = Color3.fromRGB(28, 22, 45),
-        GlassCard = Color3.fromRGB(40, 30, 65), Accent = Color3.fromRGB(160, 80, 255),
-        Text = Color3.fromRGB(235, 225, 255), TextSoft = Color3.fromRGB(170, 150, 210),
-        TextMuted = Color3.fromRGB(110, 90, 150), Online = Color3.fromRGB(120, 220, 140),
-        TrackOff = Color3.fromRGB(55, 40, 80), TrackOn = Color3.fromRGB(160, 80, 255),
-        StatValue = Color3.fromRGB(140, 100, 255), Stroke = Color3.fromRGB(60, 45, 90),
-        Shine = Color3.fromRGB(200, 180, 255), Glow = Color3.fromRGB(90, 40, 180),
+        GlassBg   = Color3.fromRGB(22, 18, 35),     GlassLeft = Color3.fromRGB(28, 22, 45),
+        GlassCard  = Color3.fromRGB(40, 30, 65),     Accent    = Color3.fromRGB(160, 80, 255),
+        Text       = Color3.fromRGB(235, 225, 255),  TextSoft  = Color3.fromRGB(170, 150, 210),
+        TextMuted  = Color3.fromRGB(110, 90, 150),   Online    = Color3.fromRGB(120, 220, 140),
+        TrackOff   = Color3.fromRGB(55, 40, 80),     TrackOn   = Color3.fromRGB(160, 80, 255),
+        StatValue  = Color3.fromRGB(140, 100, 255),  Stroke    = Color3.fromRGB(60, 45, 90),
+        Shine      = Color3.fromRGB(200, 180, 255),  Glow      = Color3.fromRGB(90, 40, 180),
         Stars = false
     },
     Sunset = {
-        GlassBg = Color3.fromRGB(35, 20, 18), GlassLeft = Color3.fromRGB(42, 25, 20),
-        GlassCard = Color3.fromRGB(60, 32, 28), Accent = Color3.fromRGB(255, 140, 50),
-        Text = Color3.fromRGB(255, 235, 220), TextSoft = Color3.fromRGB(210, 165, 140),
-        TextMuted = Color3.fromRGB(160, 115, 95), Online = Color3.fromRGB(100, 220, 120),
-        TrackOff = Color3.fromRGB(80, 45, 35), TrackOn = Color3.fromRGB(255, 140, 50),
-        StatValue = Color3.fromRGB(255, 160, 70), Stroke = Color3.fromRGB(90, 50, 40),
-        Shine = Color3.fromRGB(255, 200, 160), Glow = Color3.fromRGB(255, 100, 40),
+        GlassBg   = Color3.fromRGB(35, 20, 18),     GlassLeft = Color3.fromRGB(42, 25, 20),
+        GlassCard  = Color3.fromRGB(60, 32, 28),     Accent    = Color3.fromRGB(255, 140, 50),
+        Text       = Color3.fromRGB(255, 235, 220),  TextSoft  = Color3.fromRGB(210, 165, 140),
+        TextMuted  = Color3.fromRGB(160, 115, 95),   Online    = Color3.fromRGB(100, 220, 120),
+        TrackOff   = Color3.fromRGB(80, 45, 35),     TrackOn   = Color3.fromRGB(255, 140, 50),
+        StatValue  = Color3.fromRGB(255, 160, 70),   Stroke    = Color3.fromRGB(90, 50, 40),
+        Shine      = Color3.fromRGB(255, 200, 160),  Glow      = Color3.fromRGB(255, 100, 40),
         Stars = false
     },
     Cosmos = {
-        GlassBg = Color3.fromRGB(6, 8, 20), GlassLeft = Color3.fromRGB(10, 12, 28),
-        GlassCard = Color3.fromRGB(18, 22, 45), Accent = Color3.fromRGB(140, 200, 255),
-        Text = Color3.fromRGB(220, 235, 255), TextSoft = Color3.fromRGB(150, 170, 210),
-        TextMuted = Color3.fromRGB(80, 100, 150), Online = Color3.fromRGB(80, 230, 160),
-        TrackOff = Color3.fromRGB(35, 40, 70), TrackOn = Color3.fromRGB(140, 200, 255),
-        StatValue = Color3.fromRGB(120, 190, 255), Stroke = Color3.fromRGB(40, 55, 100),
-        Shine = Color3.fromRGB(200, 220, 255), Glow = Color3.fromRGB(60, 100, 200),
+        GlassBg   = Color3.fromRGB(6, 8, 20),       GlassLeft = Color3.fromRGB(10, 12, 28),
+        GlassCard  = Color3.fromRGB(18, 22, 45),     Accent    = Color3.fromRGB(140, 200, 255),
+        Text       = Color3.fromRGB(220, 235, 255),  TextSoft  = Color3.fromRGB(150, 170, 210),
+        TextMuted  = Color3.fromRGB(80, 100, 150),   Online    = Color3.fromRGB(80, 230, 160),
+        TrackOff   = Color3.fromRGB(35, 40, 70),     TrackOn   = Color3.fromRGB(140, 200, 255),
+        StatValue  = Color3.fromRGB(120, 190, 255),  Stroke    = Color3.fromRGB(40, 55, 100),
+        Shine      = Color3.fromRGB(200, 220, 255),  Glow      = Color3.fromRGB(60, 100, 200),
         Stars = true, StarColor = Color3.fromRGB(200, 220, 255), StarCount = 80
     },
     Nebula = {
-        GlassBg = Color3.fromRGB(10, 5, 22), GlassLeft = Color3.fromRGB(16, 8, 32),
-        GlassCard = Color3.fromRGB(30, 12, 55), Accent = Color3.fromRGB(220, 110, 255),
-        Text = Color3.fromRGB(240, 220, 255), TextSoft = Color3.fromRGB(185, 150, 220),
-        TextMuted = Color3.fromRGB(120, 80, 160), Online = Color3.fromRGB(100, 230, 180),
-        TrackOff = Color3.fromRGB(55, 25, 80), TrackOn = Color3.fromRGB(220, 110, 255),
-        StatValue = Color3.fromRGB(200, 120, 255), Stroke = Color3.fromRGB(80, 35, 120),
-        Shine = Color3.fromRGB(230, 180, 255), Glow = Color3.fromRGB(140, 50, 200),
+        GlassBg   = Color3.fromRGB(10, 5, 22),      GlassLeft = Color3.fromRGB(16, 8, 32),
+        GlassCard  = Color3.fromRGB(30, 12, 55),     Accent    = Color3.fromRGB(220, 110, 255),
+        Text       = Color3.fromRGB(240, 220, 255),  TextSoft  = Color3.fromRGB(185, 150, 220),
+        TextMuted  = Color3.fromRGB(120, 80, 160),   Online    = Color3.fromRGB(100, 230, 180),
+        TrackOff   = Color3.fromRGB(55, 25, 80),     TrackOn   = Color3.fromRGB(220, 110, 255),
+        StatValue  = Color3.fromRGB(200, 120, 255),  Stroke    = Color3.fromRGB(80, 35, 120),
+        Shine      = Color3.fromRGB(230, 180, 255),  Glow      = Color3.fromRGB(140, 50, 200),
         Stars = true, StarColor = Color3.fromRGB(255, 200, 255), StarCount = 100
     }
 }
 
-local Theme = Themes.Dark
-local ThemeRegistry = {}
-local ThemeListeners = {}
-local ActiveStars = {}
-
-local function RegisterThemeObject(Obj, Property, Key)
-    table.insert(ThemeRegistry, {Object = Obj, Property = Property, Key = Key})
-end
-
-local function ClearStars()
-    for _, star in ipairs(ActiveStars) do
-        if star and star.Parent then star:Destroy() end
+-- ============================================================
+-- UTILITY
+-- ============================================================
+local function Create(Class, Props)
+    local obj = Instance.new(Class)
+    for k, v in pairs(Props) do
+        if k ~= "Parent" then obj[k] = v end
     end
-    table.clear(ActiveStars)
+    if Props.Parent then obj.Parent = Props.Parent end
+    return obj
 end
 
-local StarContainer = nil
+local function Tween(obj, props, dur, style, dir)
+    local t = TweenService:Create(
+        obj,
+        TweenInfo.new(dur or 0.6, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out),
+        props
+    )
+    t:Play()
+    return t
+end
 
-local function SpawnStars(count, color)
-    ClearStars()
-    if not StarContainer then return end
-    for i = 1, count do
-        local star = Instance.new("Frame")
-        star.BackgroundColor3 = color
-        star.BorderSizePixel = 0
-        local size = math.random(1, 3)
-        star.Size = UDim2.new(0, size, 0, size)
-        star.Position = UDim2.new(math.random(0, 100) / 100, 0, math.random(0, 100) / 100, 0)
-        star.BackgroundTransparency = math.random(20, 70) / 100
-        star.ZIndex = 1
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(1, 0)
-        corner.Parent = star
-        star.Parent = StarContainer
-        table.insert(ActiveStars, star)
+-- ============================================================
+-- WINDOW CONSTRUCTOR  (the public entry point)
+-- ============================================================
+
+--[[
+    PortalVisuals.new(title, options?)
+    options = {
+        theme     = "Dark",          -- any key in Themes
+        subtitle  = "v1.0",
+        menuKey   = Enum.KeyCode.K,
+        watermark = true,
+        size      = {720, 560},
+    }
+    Returns a Window object.
+--]]
+
+local PortalVisuals = {}
+PortalVisuals.__index = PortalVisuals
+
+-- expose theme list so external scripts can enumerate
+PortalVisuals.Themes = Themes
+
+function PortalVisuals.new(title, options)
+    options = options or {}
+
+    local self = setmetatable({}, PortalVisuals)
+
+    -- ── per-window state ──────────────────────────────────────
+    self._theme          = Themes[options.theme or "Dark"] or Themes.Dark
+    self._themeReg       = {}   -- {obj, prop, key}
+    self._themeListeners = {}   -- callbacks(newTheme)
+    self._stars          = {}
+    self._keybinds       = {}   -- [KeyCode] = callback
+    self._tabs           = {}   -- ordered list
+    self._currentTab     = nil
+    self._isOpen         = true
+    self._flags          = {}   -- [effectName] = bool  (toggle state)
+
+    local W, H = (options.size and options.size[1]) or 720,
+                 (options.size and options.size[2]) or 560
+
+    -- ── ScreenGuis ────────────────────────────────────────────
+    self._gui = Create("ScreenGui", {
+        Name = "PortalVisuals_" .. title,
+        Parent = CoreGui,
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        DisplayOrder = 999
+    })
+
+    -- ── Blur ──────────────────────────────────────────────────
+    self._blur = Create("BlurEffect", {Size = 0, Parent = Lighting})
+
+    -- ── Watermark ─────────────────────────────────────────────
+    if options.watermark ~= false then
+        self:_buildWatermark(title)
+    end
+
+    -- ── Notification layer ────────────────────────────────────
+    self:_buildNotifyLayer()
+
+    -- ── Main window ───────────────────────────────────────────
+    self:_buildMainWindow(title, options.subtitle or "", W, H)
+
+    -- ── Menu keybind ──────────────────────────────────────────
+    local menuKey = options.menuKey or Enum.KeyCode.K
+    self._menuKey = menuKey
+    self._keybinds[menuKey] = function() self:Toggle() end
+
+    -- global input router
+    self._inputConn = UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            local cb = self._keybinds[input.KeyCode]
+            if cb then task.spawn(cb, input.KeyCode) end
+        end
+    end)
+
+    -- open animation
+    self._mainFrame.Visible = true
+    self._mainFrame.Size = UDim2.new(0, W, 0, 0)
+    Tween(self._blur,      {Size = 20},                                                 1.2)
+    Tween(self._mainFrame, {Size = UDim2.new(0, W, 0, H),
+                             Position = UDim2.new(0.5, -W/2, 0.5, -H/2),
+                             BackgroundTransparency = 0.82},                             1.2)
+
+    task.delay(1.5, function()
+        self:Notify("Portal Visuals", title .. " initialized", 4)
+    end)
+
+    -- cleanup registration
+    _lib._cleanup = function() self:Destroy() end
+
+    return self
+end
+
+-- ============================================================
+-- THEME INTERNALS
+-- ============================================================
+function PortalVisuals:_reg(obj, prop, key)
+    table.insert(self._themeReg, {Object = obj, Property = prop, Key = key})
+end
+
+function PortalVisuals:_clearStars()
+    for _, s in ipairs(self._stars) do if s and s.Parent then s:Destroy() end end
+    table.clear(self._stars)
+end
+
+function PortalVisuals:_spawnStars(count, color)
+    self:_clearStars()
+    if not self._starContainer then return end
+    for _ = 1, count do
+        local star = Create("Frame", {
+            Parent = self._starContainer,
+            BackgroundColor3 = color,
+            BorderSizePixel = 0,
+            Size = UDim2.new(0, math.random(1,3), 0, math.random(1,3)),
+            Position = UDim2.new(math.random(0,100)/100, 0, math.random(0,100)/100, 0),
+            BackgroundTransparency = math.random(20,70)/100,
+            ZIndex = 1
+        })
+        Create("UICorner", {Parent = star, CornerRadius = UDim.new(1,0)})
+        table.insert(self._stars, star)
         task.spawn(function()
-            local baseAlpha = star.BackgroundTransparency
+            local base = star.BackgroundTransparency
             while star and star.Parent do
-                local target = math.clamp(baseAlpha + math.random(-30, 30) / 100, 0.1, 0.9)
-                TweenService:Create(star, TweenInfo.new(math.random(10, 25) / 10, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = target}):Play()
-                task.wait(math.random(15, 35) / 10)
+                local target = math.clamp(base + math.random(-30,30)/100, 0.1, 0.9)
+                Tween(star, {BackgroundTransparency = target}, math.random(15,35)/10, Enum.EasingStyle.Sine)
+                task.wait(math.random(15,35)/10)
             end
         end)
     end
 end
 
-local function SetTheme(Name)
-    local New = Themes[Name]
-    if not New then return end
-    Theme = New
-    for _, Entry in ipairs(ThemeRegistry) do
-        if Entry.Object and Entry.Object.Parent then
-            TweenService:Create(Entry.Object, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {[Entry.Property] = New[Entry.Key]}):Play()
+-- ============================================================
+-- PUBLIC: SetTheme
+-- ============================================================
+function PortalVisuals:SetTheme(name)
+    local new = Themes[name]
+    if not new then return end
+    self._theme = new
+    for _, entry in ipairs(self._themeReg) do
+        if entry.Object and entry.Object.Parent then
+            Tween(entry.Object, {[entry.Property] = new[entry.Key]}, 0.6)
         end
     end
-    for _, listener in pairs(ThemeListeners) do
-        if listener then task.spawn(listener, New) end
+    for _, cb in pairs(self._themeListeners) do
+        if cb then task.spawn(cb, new) end
     end
-    if New.Stars and New.StarCount and New.StarColor then
-        task.delay(0.1, function() SpawnStars(New.StarCount, New.StarColor) end)
+    if new.Stars and new.StarCount and new.StarColor then
+        task.delay(0.1, function() self:_spawnStars(new.StarCount, new.StarColor) end)
     else
-        ClearStars()
+        self:_clearStars()
     end
+    self:Notify("Theme", name .. " applied", 2)
 end
-
--- ============================================================
--- УТИЛИТЫ
--- ============================================================
-local Utility = {}
-function Utility:Create(Class, Props)
-    local Obj = Instance.new(Class)
-    for K, V in pairs(Props) do
-        if K ~= "Parent" then Obj[K] = V end
-    end
-    if Props.Parent then Obj.Parent = Props.Parent end
-    return Obj
-end
-
-function Utility:Tween(Obj, Props, Dur, Style, Dir)
-    local T = TweenService:Create(Obj, TweenInfo.new(Dur or 0.6, Style or Enum.EasingStyle.Quint, Dir or Enum.EasingDirection.Out), Props)
-    T:Play()
-    return T
-end
-
-local Blur = Instance.new("BlurEffect")
-Blur.Size = 0
-Blur.Parent = Lighting
-
-local ScreenGui = Utility:Create("ScreenGui", {
-    Name = "PortalFinal",
-    Parent = CoreGui,
-    ResetOnSpawn = false,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-    DisplayOrder = 999
-})
-
-local WatermarkGui = Utility:Create("ScreenGui", {
-    Name = "PortalWatermark",
-    Parent = CoreGui,
-    ResetOnSpawn = false,
-    IgnoreGuiInset = true,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-    DisplayOrder = 100000
-})
 
 -- ============================================================
 -- WATERMARK
 -- ============================================================
-local WMCard = Utility:Create("Frame", {
-    Name = "Card",
-    Parent = WatermarkGui,
-    AnchorPoint = Vector2.new(0.5, 0),
-    Position = UDim2.new(0.5, 0, 0, 4),
-    Size = UDim2.new(0, 300, 0, 32),
-    BackgroundColor3 = Theme.GlassBg,
-    BackgroundTransparency = 0.92,
-    BorderSizePixel = 0,
-    ZIndex = 100
-})
-RegisterThemeObject(WMCard, "BackgroundColor3", "GlassBg")
-Utility:Create("UICorner", {Parent = WMCard, CornerRadius = UDim.new(0, 12)})
+function PortalVisuals:_buildWatermark(title)
+    local T = self._theme
+    local wmGui = Create("ScreenGui", {
+        Name = "PortalWM_" .. title,
+        Parent = CoreGui,
+        ResetOnSpawn = false,
+        IgnoreGuiInset = true,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        DisplayOrder = 100000
+    })
+    self._wmGui = wmGui
 
-local WMStroke = Utility:Create("UIStroke", {Parent = WMCard, Color = Theme.Stroke, Thickness = 1, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
-RegisterThemeObject(WMStroke, "Color", "Stroke")
+    local card = Create("Frame", {
+        Parent = wmGui,
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, 4),
+        Size = UDim2.new(0, 300, 0, 32),
+        BackgroundColor3 = T.GlassBg,
+        BackgroundTransparency = 0.92,
+        BorderSizePixel = 0,
+        ZIndex = 100
+    })
+    self:_reg(card, "BackgroundColor3", "GlassBg")
+    Create("UICorner",  {Parent = card, CornerRadius = UDim.new(0, 12)})
+    local stroke = Create("UIStroke", {Parent = card, Color = T.Stroke, Thickness = 1, Transparency = 0.6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
+    self:_reg(stroke, "Color", "Stroke")
 
-local WMDot = Utility:Create("Frame", {Parent = WMCard, BackgroundColor3 = Color3.fromRGB(0, 200, 100), BorderSizePixel = 0, Position = UDim2.new(0, 10, 0.5, -3), Size = UDim2.new(0, 6, 0, 6), ZIndex = 103})
-Utility:Create("UICorner", {Parent = WMDot, CornerRadius = UDim.new(1, 0)})
+    local dot = Create("Frame", {Parent = card, BackgroundColor3 = Color3.fromRGB(0,200,100), BorderSizePixel = 0, Position = UDim2.new(0,10,0.5,-3), Size = UDim2.new(0,6,0,6), ZIndex = 103})
+    Create("UICorner", {Parent = dot, CornerRadius = UDim.new(1,0)})
 
-local WMLogo = Utility:Create("TextLabel", {Parent = WMCard, BackgroundTransparency = 1, Position = UDim2.new(0, 22, 0, 0), Size = UDim2.new(0, 82, 1, 0), Font = Enum.Font.GothamBold, Text = "Portal Visuals", TextColor3 = Theme.Text, TextSize = 12, TextTransparency = 0.05, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 102})
-RegisterThemeObject(WMLogo, "TextColor3", "Text")
+    local logo = Create("TextLabel", {Parent = card, BackgroundTransparency = 1, Position = UDim2.new(0,22,0,0), Size = UDim2.new(0,82,1,0), Font = Enum.Font.GothamBold, Text = title, TextColor3 = T.Text, TextSize = 12, TextTransparency = 0.05, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 102})
+    self:_reg(logo, "TextColor3", "Text")
 
-local WMSep = Utility:Create("TextLabel", {Parent = WMCard, BackgroundTransparency = 1, Position = UDim2.new(0, 104, 0, 0), Size = UDim2.new(0, 10, 1, 0), Font = Enum.Font.GothamMedium, Text = "|", TextColor3 = Theme.TextMuted, TextSize = 12, TextTransparency = 0.3, ZIndex = 102})
-RegisterThemeObject(WMSep, "TextColor3", "TextMuted")
+    local sep = Create("TextLabel", {Parent = card, BackgroundTransparency = 1, Position = UDim2.new(0,104,0,0), Size = UDim2.new(0,10,1,0), Font = Enum.Font.GothamMedium, Text = "|", TextColor3 = T.TextMuted, TextSize = 12, TextTransparency = 0.3, ZIndex = 102})
+    self:_reg(sep, "TextColor3", "TextMuted")
 
-local WMStats = Utility:Create("TextLabel", {Parent = WMCard, BackgroundTransparency = 1, Position = UDim2.new(0, 114, 0, 0), Size = UDim2.new(1, -122, 1, 0), Font = Enum.Font.GothamMedium, Text = "... ms | ... FPS", TextColor3 = Theme.Text, TextSize = 12, TextTransparency = 0.1, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 102})
-RegisterThemeObject(WMStats, "TextColor3", "Text")
+    local stats = Create("TextLabel", {Parent = card, BackgroundTransparency = 1, Position = UDim2.new(0,114,0,0), Size = UDim2.new(1,-122,1,0), Font = Enum.Font.GothamMedium, Text = "... ms | ... FPS", TextColor3 = T.Text, TextSize = 12, TextTransparency = 0.1, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 102})
+    self:_reg(stats, "TextColor3", "Text")
 
-task.spawn(function()
-    local FPS = 0
-    local Frames = 0
-    local Last = tick()
-    while WatermarkGui and WatermarkGui.Parent do
-        RunService.RenderStepped:Wait()
-        Frames = Frames + 1
-        local Now = tick()
-        if Now - Last >= 1 then
-            FPS = Frames
-            Frames = 0
-            Last = Now
-            local ok, val = pcall(function() return Stats.PerformanceStats.Ping:GetValue() end)
-            local Ping = ok and math.floor(val) or 0
-            WMStats.Text = tostring(Ping) .. " ms | " .. tostring(FPS) .. " FPS"
-        end
-    end
-end)
-
--- ============================================================
--- ОСНОВНОЕ МЕНЮ
--- ============================================================
-local Main = Utility:Create("Frame", {
-    Name = "Main",
-    Parent = ScreenGui,
-    BackgroundColor3 = Theme.GlassBg,
-    BackgroundTransparency = 0.82,
-    BorderSizePixel = 0,
-    Position = UDim2.new(0.5, -360, 0.5, -280),
-    Size = UDim2.new(0, 720, 0, 560),
-    Active = true,
-    Visible = false,
-    ClipsDescendants = true
-})
-RegisterThemeObject(Main, "BackgroundColor3", "GlassBg")
-
-Utility:Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 42)})
-local MainStroke = Utility:Create("UIStroke", {Parent = Main, Color = Theme.Stroke, Thickness = 2, Transparency = 0.5})
-
-StarContainer = Utility:Create("Frame", {
-    Parent = Main,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    Size = UDim2.new(1, 0, 1, 0),
-    Position = UDim2.new(0, 0, 0, 0),
-    ZIndex = 0,
-    ClipsDescendants = true
-})
-
-local BackgroundImage = Utility:Create("ImageLabel", {
-    Parent = Main,
-    Name = "BackgroundAsset",
-    BackgroundTransparency = 1,
-    Image = "",
-    ImageTransparency = 1,
-    ScaleType = Enum.ScaleType.Crop,
-    ZIndex = 0,
-    Size = UDim2.new(1, 0, 1, 0),
-    Position = UDim2.new(0, 0, 0, 0)
-})
-
-local function UpdateBackgroundSize()
-    if not Main or not BackgroundImage then return end
-    local s = Main.AbsoluteSize
-    if s.X == 0 or s.Y == 0 then return end
-    BackgroundImage.Size = UDim2.new(0, s.X, 0, s.Y)
-    BackgroundImage.Position = UDim2.new(0, 0, 0, 0)
-end
-
-local layoutConn
-layoutConn = RunService.Heartbeat:Connect(function()
-    if Main.AbsoluteSize.X > 0 then
-        UpdateBackgroundSize()
-        layoutConn:Disconnect()
-    end
-end)
-
-Main:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateBackgroundSize)
-
-local function NormalizeAssetId(raw)
-    local s = tostring(raw):match("^%s*(.-)%s*$")
-    if s == "" or s == "0" then return nil end
-    if s:match("^rbxassetid://%d+$") then return s end
-    if s:match("^%d+$") then return "rbxassetid://" .. s end
-    local id = s:match("(%d+)")
-    if id and #id >= 6 then return "rbxassetid://" .. id end
-    return nil
-end
-
-local function SetBackgroundAsset(raw)
-    local uri = NormalizeAssetId(raw)
-    if not uri then
-        Utility:Tween(BackgroundImage, {ImageTransparency = 1}, 0.4, Enum.EasingStyle.Quint)
-        task.delay(0.45, function() BackgroundImage.Image = "" end)
-        return
-    end
-    BackgroundImage.Image = uri
-    UpdateBackgroundSize()
-    Utility:Tween(BackgroundImage, {ImageTransparency = 0.45}, 0.4, Enum.EasingStyle.Quint)
-end
-
-local SetBackgroundMedia = SetBackgroundAsset
-
-local InnerContainer = Utility:Create("Frame", {Parent = Main, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 1, 0), ZIndex = 2})
-local Shine = Utility:Create("Frame", {Parent = InnerContainer, BackgroundColor3 = Theme.Shine, BackgroundTransparency = 0.92, BorderSizePixel = 0, Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(1, 0, 0, 0.45), ZIndex = 10})
-Utility:Create("UIGradient", {Parent = Shine, Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(0.35, 0.85), NumberSequenceKeypoint.new(1, 1)})})
-
-local LeftPanel = Utility:Create("Frame", {Parent = InnerContainer, BackgroundColor3 = Theme.GlassLeft, BackgroundTransparency = 0.88, BorderSizePixel = 0, Size = UDim2.new(0, 220, 1, 0), Active = true, ZIndex = 3})
-RegisterThemeObject(LeftPanel, "BackgroundColor3", "GlassLeft")
-Utility:Create("UICorner", {Parent = LeftPanel, CornerRadius = UDim.new(0, 42)})
-
-local Separator = Utility:Create("Frame", {
-    Parent = LeftPanel,
-    BackgroundColor3 = Theme.Stroke,
-    BackgroundTransparency = 0.2,
-    BorderSizePixel = 0,
-    Position = UDim2.new(1, -2, 0, 20),
-    Size = UDim2.new(0, 2, 1, -40),
-    ZIndex = 4
-})
-RegisterThemeObject(Separator, "BackgroundColor3", "Stroke")
-
-local Title = Utility:Create("TextLabel", {Parent = LeftPanel, BackgroundTransparency = 1, Position = UDim2.new(0, 28, 0, 28), Size = UDim2.new(1, -40, 0, 30), Font = Enum.Font.GothamBlack, Text = "Portal Visuals", TextColor3 = Theme.Text, TextSize = 24, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5})
-RegisterThemeObject(Title, "TextColor3", "Text")
-local SubTitle = Utility:Create("TextLabel", {Parent = LeftPanel, BackgroundTransparency = 1, Position = UDim2.new(0, 28, 0, 58), Size = UDim2.new(1, -40, 0, 14), Font = Enum.Font.Gotham, Text = "RECOVERY ENV", TextColor3 = Theme.TextMuted, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5})
-RegisterThemeObject(SubTitle, "TextColor3", "TextMuted")
-
-local TabsHolder = Utility:Create("Frame", {Parent = LeftPanel, BackgroundTransparency = 1, Position = UDim2.new(0, 28, 0, 110), Size = UDim2.new(1, -56, 0, 160), ZIndex = 5})
-local Tabs = {}
-local CurrentTab = nil
-local Pages = {}
-
-local function AddTab(Name, Page)
-    local Btn = Utility:Create("TextButton", {Parent = TabsHolder, Name = Name, BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.new(0, 0, 0, #Tabs * 58), Size = UDim2.new(1, -56, 0, 48), Font = Enum.Font.GothamBold, Text = Name, TextColor3 = Theme.TextSoft, TextSize = 16, AutoButtonColor = false, ZIndex = 6})
-    RegisterThemeObject(Btn, "TextColor3", "TextSoft")
-    local Ind = Utility:Create("Frame", {Parent = Btn, BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, Position = UDim2.new(0, -12, 0.5, -4), Size = UDim2.new(0, 6, 0, 8), BackgroundTransparency = 1, ZIndex = 7})
-    RegisterThemeObject(Ind, "BackgroundColor3", "Accent")
-    Utility:Create("UICorner", {Parent = Ind, CornerRadius = UDim.new(1, 0)})
-    table.insert(Tabs, {Name = Name, Button = Btn, Indicator = Ind, Page = Page})
-    Pages[Name] = Page
-    Btn.MouseEnter:Connect(function()
-        if CurrentTab ~= Name then Utility:Tween(Btn, {TextColor3 = Theme.Text}, 0.4, Enum.EasingStyle.Sine) end
-    end)
-    Btn.MouseLeave:Connect(function()
-        if CurrentTab ~= Name then Utility:Tween(Btn, {TextColor3 = Theme.TextSoft}, 0.4, Enum.EasingStyle.Sine) end
-    end)
-    Btn.MouseButton1Click:Connect(function()
-        if CurrentTab == Name then return end
-        for _, T in ipairs(Tabs) do
-            if T.Name == CurrentTab then
-                Utility:Tween(T.Button, {TextColor3 = Theme.TextSoft}, 0.5, Enum.EasingStyle.Quint)
-                Utility:Tween(T.Indicator, {BackgroundTransparency = 1}, 0.4, Enum.EasingStyle.Quint)
-                if T.Page then T.Page.Visible = false end
+    task.spawn(function()
+        local fps, frames, last = 0, 0, tick()
+        while wmGui and wmGui.Parent do
+            RunService.RenderStepped:Wait()
+            frames = frames + 1
+            local now = tick()
+            if now - last >= 1 then
+                fps = frames; frames = 0; last = now
+                local ok, val = pcall(function() return Stats.PerformanceStats.Ping:GetValue() end)
+                stats.Text = (ok and math.floor(val) or 0) .. " ms | " .. fps .. " FPS"
             end
         end
-        CurrentTab = Name
-        Utility:Tween(Btn, {TextColor3 = Theme.Text}, 0.5, Enum.EasingStyle.Quint)
-        Utility:Tween(Ind, {BackgroundTransparency = 0}, 0.4, Enum.EasingStyle.Quint)
-        if Page then
-            Page.CanvasPosition = Vector2.new(0, 0)
-            Page.Visible = true
-            Page.Position = UDim2.new(0, 80, 0, 0)
-            Utility:Tween(Page, {Position = UDim2.new(0, 0, 0, 0)}, 0.5, Enum.EasingStyle.Quint)
-        end
     end)
 end
 
-local ProfileBtn = Utility:Create("TextButton", {Parent = LeftPanel, Name = "Profile", BackgroundTransparency = 1, Position = UDim2.new(0, 28, 1, -76), Size = UDim2.new(1, -56, 0, 54), Text = "", AutoButtonColor = false, ZIndex = 5})
-local AvatarBg = Utility:Create("Frame", {Parent = ProfileBtn, BackgroundColor3 = Theme.GlassCard, BackgroundTransparency = 0.6, Size = UDim2.new(0, 42, 0, 42), ZIndex = 6})
-RegisterThemeObject(AvatarBg, "BackgroundColor3", "GlassCard")
-Utility:Create("UICorner", {Parent = AvatarBg, CornerRadius = UDim.new(1, 0)})
-local AvatarStroke = Utility:Create("UIStroke", {Parent = AvatarBg, Color = Theme.Stroke, Thickness = 1.5, Transparency = 0.5})
-RegisterThemeObject(AvatarStroke, "Color", "Stroke")
-local AvatarImg = Utility:Create("ImageLabel", {Parent = AvatarBg, BackgroundTransparency = 1, Position = UDim2.new(0, 2, 0, 2), Size = UDim2.new(1, -4, 1, -4), Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=420&height=420&format=png", ZIndex = 7})
-Utility:Create("UICorner", {Parent = AvatarImg, CornerRadius = UDim.new(1, 0)})
-local ProfileName = Utility:Create("TextLabel", {Parent = ProfileBtn, BackgroundTransparency = 1, Position = UDim2.new(0, 54, 0, 2), Size = UDim2.new(1, -64, 0, 20), Font = Enum.Font.GothamBold, Text = "@" .. LocalPlayer.Name, TextColor3 = Theme.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6})
-RegisterThemeObject(ProfileName, "TextColor3", "Text")
-local ProfileStatus = Utility:Create("TextLabel", {Parent = ProfileBtn, BackgroundTransparency = 1, Position = UDim2.new(0, 54, 0, 24), Size = UDim2.new(1, -64, 0, 14), Font = Enum.Font.Gotham, Text = "Online", TextColor3 = Theme.Online, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6})
-RegisterThemeObject(ProfileStatus, "TextColor3", "Online")
-ProfileBtn.MouseEnter:Connect(function()
-    Utility:Tween(AvatarBg, {BackgroundTransparency = 0.3}, 0.3, Enum.EasingStyle.Sine)
-    Utility:Tween(AvatarStroke, {Transparency = 0.3}, 0.3, Enum.EasingStyle.Sine)
-end)
-ProfileBtn.MouseLeave:Connect(function()
-    Utility:Tween(AvatarBg, {BackgroundTransparency = 0.6}, 0.3, Enum.EasingStyle.Sine)
-    Utility:Tween(AvatarStroke, {Transparency = 0.5}, 0.3, Enum.EasingStyle.Sine)
-end)
+-- ============================================================
+-- NOTIFICATION LAYER
+-- ============================================================
+function PortalVisuals:_buildNotifyLayer()
+    local notifyGui = Create("ScreenGui", {
+        Name = "PortalNotify",
+        Parent = CoreGui,
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        DisplayOrder = 9999
+    })
+    self._notifyGui = notifyGui
 
-local ContentArea = Utility:Create("Frame", {Parent = InnerContainer, BackgroundTransparency = 1, Position = UDim2.new(0, 220, 0, 0), Size = UDim2.new(1, -220, 1, 0), ClipsDescendants = true, ZIndex = 3})
-
-local function CreatePage(Name)
-    local Page = Utility:Create("ScrollingFrame", {Parent = ContentArea, Name = Name.."Page", BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new(1, 0, 1, 0), CanvasSize = UDim2.new(0, 0, 0, 0), ScrollBarThickness = 3, ScrollBarImageColor3 = Theme.TextMuted, Visible = false, ZIndex = 4})
-    RegisterThemeObject(Page, "ScrollBarImageColor3", "TextMuted")
-    local List = Utility:Create("UIListLayout", {Parent = Page, Padding = UDim.new(0, 14), SortOrder = Enum.SortOrder.LayoutOrder})
-    Utility:Create("UIPadding", {Parent = Page, PaddingLeft = UDim.new(0, 22), PaddingRight = UDim.new(0, 22), PaddingTop = UDim.new(0, 20), PaddingBottom = UDim.new(0, 20)})
-    List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Page.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 40)
-    end)
-    return Page
-end
-
-local MainPage = CreatePage("Main")
-local VisualsPage = CreatePage("Visuals")
-local SettingsPage = CreatePage("Settings")
-AddTab("Main", MainPage)
-AddTab("Visuals", VisualsPage)
-AddTab("Settings", SettingsPage)
-
-local function CreateSection(Parent, TitleText)
-    local Section = Utility:Create("Frame", {Parent = Parent, BackgroundColor3 = Theme.GlassCard, BackgroundTransparency = 0.78, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = #Parent:GetChildren() + 1, ZIndex = 5})
-    RegisterThemeObject(Section, "BackgroundColor3", "GlassCard")
-    Utility:Create("UICorner", {Parent = Section, CornerRadius = UDim.new(0, 30)})
-    Utility:Create("UIStroke", {Parent = Section, Color = Theme.Stroke, Thickness = 1.5, Transparency = 0.6})
-    local ShineS = Utility:Create("Frame", {Parent = Section, BackgroundColor3 = Theme.Shine, BackgroundTransparency = 0.88, Size = UDim2.new(1, 0, 0, 0.5), ZIndex = 6})
-    Utility:Create("UIGradient", {Parent = ShineS, Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.65), NumberSequenceKeypoint.new(1, 1)})})
-    local Ind = Utility:Create("Frame", {Parent = Section, BackgroundColor3 = Theme.Accent, Position = UDim2.new(0, 18, 0, 18), Size = UDim2.new(0, 4, 0, 20), ZIndex = 7})
-    RegisterThemeObject(Ind, "BackgroundColor3", "Accent")
-    Utility:Create("UICorner", {Parent = Ind, CornerRadius = UDim.new(1, 0)})
-    Utility:Create("TextLabel", {Parent = Section, BackgroundTransparency = 1, Position = UDim2.new(0, 36, 0, 0), Size = UDim2.new(1, -50, 0, 56), Font = Enum.Font.GothamBold, Text = TitleText, TextColor3 = Theme.Text, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 7})
-    local Content = Utility:Create("Frame", {Parent = Section, BackgroundTransparency = 1, Position = UDim2.new(0, 18, 0, 56), Size = UDim2.new(1, -36, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 7})
-    Utility:Create("UIListLayout", {Parent = Content, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder})
-    Utility:Create("UIPadding", {Parent = Content, PaddingBottom = UDim.new(0, 16)})
-    return Content
-end
-
-local function CreateToggle(Parent, LabelText, EffectName, DefaultState)
-    local Frame = Utility:Create("Frame", {Parent = Parent, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 38), LayoutOrder = #Parent:GetChildren() + 1})
-    local Label = Utility:Create("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Size = UDim2.new(1, -120, 1, 0), Font = Enum.Font.Gotham, Text = LabelText, TextColor3 = Theme.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6})
-    RegisterThemeObject(Label, "TextColor3", "Text")
-    local Default = DefaultState or false
-    local Track = Utility:Create("Frame", {Parent = Frame, BackgroundColor3 = Default and Theme.TrackOn or Theme.TrackOff, BorderSizePixel = 0, Position = UDim2.new(1, -50, 0.5, -13), Size = UDim2.new(0, 50, 0, 26), ZIndex = 6})
-    RegisterThemeObject(Track, "BackgroundColor3", Default and "TrackOn" or "TrackOff")
-    Utility:Create("UICorner", {Parent = Track, CornerRadius = UDim.new(1, 0)})
-    local Thumb = Utility:Create("Frame", {Parent = Track, BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, Position = Default and UDim2.new(1, -24, 0.5, -11) or UDim2.new(0, 2, 0.5, -11), Size = UDim2.new(0, 22, 0, 22), ZIndex = 7})
-    Utility:Create("UICorner", {Parent = Thumb, CornerRadius = UDim.new(1, 0)})
-    local Enabled = Default
-    local Debounce = false
-    local function UpdateVisual()
-        if Enabled then
-            Utility:Tween(Track, {BackgroundColor3 = Theme.TrackOn}, 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-            Utility:Tween(Thumb, {Position = UDim2.new(1, -24, 0.5, -11)}, 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-        else
-            Utility:Tween(Track, {BackgroundColor3 = Theme.TrackOff}, 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-            Utility:Tween(Thumb, {Position = UDim2.new(0, 2, 0.5, -11)}, 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-        end
-    end
-    Track.InputBegan:Connect(function(Input)
-        if Input.UserInputType ~= Enum.UserInputType.MouseButton1 and Input.UserInputType ~= Enum.UserInputType.Touch then return end
-        if Debounce then return end
-        Debounce = true
-        Enabled = not Enabled
-        _G.PortalVisuals[EffectName] = Enabled
-        UpdateVisual()
-        task.wait(0.5)
-        Debounce = false
-    end)
-    table.insert(ThemeListeners, function() UpdateVisual() end)
-    return Frame, {SetState = function(val) Enabled = val; UpdateVisual() end}
-end
-
-local function CreateSlider(Parent, LabelText, Min, Max, Default, Callback)
-    local Frame = Utility:Create("Frame", {Parent = Parent, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 44), LayoutOrder = #Parent:GetChildren() + 1})
-    local Label = Utility:Create("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Position = UDim2.new(0, 4, 0, 0), Size = UDim2.new(0.5, -4, 0, 20), Font = Enum.Font.Gotham, Text = LabelText, TextColor3 = Theme.TextMuted, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 7})
-    RegisterThemeObject(Label, "TextColor3", "TextMuted")
-    local ValueLabel = Utility:Create("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Position = UDim2.new(0.5, 4, 0, 0), Size = UDim2.new(0.5, -8, 0, 20), Font = Enum.Font.GothamBold, Text = tostring(Default), TextColor3 = Theme.Text, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 7})
-    RegisterThemeObject(ValueLabel, "TextColor3", "Text")
-    local Track = Utility:Create("Frame", {Parent = Frame, BackgroundColor3 = Theme.TrackOff, BorderSizePixel = 0, Position = UDim2.new(0, 4, 0, 24), Size = UDim2.new(1, -8, 0, 6), ZIndex = 7})
-    RegisterThemeObject(Track, "BackgroundColor3", "TrackOff")
-    Utility:Create("UICorner", {Parent = Track, CornerRadius = UDim.new(1, 0)})
-    local Fill = Utility:Create("Frame", {Parent = Track, BackgroundColor3 = Theme.TrackOn, BorderSizePixel = 0, Position = UDim2.new(0, 0, 0, 0), Size = UDim2.new((Default - Min) / (Max - Min), 0, 1, 0), ZIndex = 8})
-    RegisterThemeObject(Fill, "BackgroundColor3", "TrackOn")
-    Utility:Create("UICorner", {Parent = Fill, CornerRadius = UDim.new(1, 0)})
-    local Thumb = Utility:Create("Frame", {Parent = Track, BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, Position = UDim2.new((Default - Min) / (Max - Min), -8, 0.5, -8), Size = UDim2.new(0, 16, 0, 16), ZIndex = 9})
-    Utility:Create("UICorner", {Parent = Thumb, CornerRadius = UDim.new(1, 0)})
-    Utility:Create("UIStroke", {Parent = Thumb, Color = Theme.TrackOn, Thickness = 1.5})
-    local dragging = false
-    local function updateSlider(val)
-        local clamped = math.clamp(val, Min, Max)
-        local alpha = (clamped - Min) / (Max - Min)
-        Fill.Size = UDim2.new(alpha, 0, 1, 0)
-        Thumb.Position = UDim2.new(alpha, -8, 0.5, -8)
-        ValueLabel.Text = string.format("%.2f", clamped)
-        if Callback then Callback(clamped) end
-    end
-    local function inputToVal(input)
-        local abs = input.Position.X - Track.AbsolutePosition.X
-        local alpha = math.clamp(abs / Track.AbsoluteSize.X, 0, 1)
-        return Min + (Max - Min) * alpha
-    end
-    Track.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            updateSlider(inputToVal(input))
-        end
-    end)
-    Thumb.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            updateSlider(inputToVal(input))
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-    return Frame
-end
-
-local function CreateTextBox(Parent, LabelText, Placeholder, DefaultText, Callback)
-    local Frame = Utility:Create("Frame", {Parent = Parent, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 38), LayoutOrder = #Parent:GetChildren() + 1})
-    local Label = Utility:Create("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Size = UDim2.new(0.4, -4, 1, 0), Font = Enum.Font.Gotham, Text = LabelText, TextColor3 = Theme.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6})
-    RegisterThemeObject(Label, "TextColor3", "Text")
-    local Box = Utility:Create("TextBox", {Parent = Frame, BackgroundColor3 = Theme.GlassCard, BackgroundTransparency = 0.6, BorderSizePixel = 0, Position = UDim2.new(0.4, 0, 0.5, -15), Size = UDim2.new(0.6, 0, 0, 30), Font = Enum.Font.GothamBold, PlaceholderText = Placeholder, Text = DefaultText or "", TextColor3 = Theme.Text, TextSize = 13, ZIndex = 6})
-    RegisterThemeObject(Box, "BackgroundColor3", "GlassCard")
-    RegisterThemeObject(Box, "TextColor3", "Text")
-    Utility:Create("UICorner", {Parent = Box, CornerRadius = UDim.new(0, 14)})
-    Utility:Create("UIStroke", {Parent = Box, Color = Theme.Stroke, Thickness = 1.5, Transparency = 0.6})
-    Box.FocusLost:Connect(function()
-        if Callback then Callback(Box.Text) end
-    end)
-    return Frame
-end
-
-local function CreateKeybind(Parent, LabelText, DefaultKey, Callback)
-    local Frame = Utility:Create("Frame", {Parent = Parent, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 38), LayoutOrder = #Parent:GetChildren() + 1})
-    local Label = Utility:Create("TextLabel", {Parent = Frame, BackgroundTransparency = 1, Size = UDim2.new(1, -120, 1, 0), Font = Enum.Font.Gotham, Text = LabelText, TextColor3 = Theme.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6})
-    RegisterThemeObject(Label, "TextColor3", "Text")
-    local CurrentKey = DefaultKey
-    local KeyBtn = Utility:Create("TextButton", {Parent = Frame, BackgroundColor3 = Theme.GlassCard, BackgroundTransparency = 0.4, BorderSizePixel = 0, Position = UDim2.new(1, -110, 0.5, -15), Size = UDim2.new(0, 100, 0, 30), Font = Enum.Font.GothamBold, Text = CurrentKey.Name, TextColor3 = Theme.Text, TextSize = 13, AutoButtonColor = false, ZIndex = 6})
-    RegisterThemeObject(KeyBtn, "BackgroundColor3", "GlassCard")
-    RegisterThemeObject(KeyBtn, "TextColor3", "Text")
-    Utility:Create("UICorner", {Parent = KeyBtn, CornerRadius = UDim.new(0, 14)})
-    Utility:Create("UIStroke", {Parent = KeyBtn, Color = Theme.Accent, Thickness = 1.5, Transparency = 0.4})
-    local waiting = false
-    KeyBtn.MouseButton1Click:Connect(function()
-        if waiting then return end
-        waiting = true
-        KeyBtn.Text = "..."
-        Utility:Tween(KeyBtn, {BackgroundColor3 = Theme.Accent, BackgroundTransparency = 0.1}, 0.3)
-        local conn
-        conn = UserInputService.InputBegan:Connect(function(input, gpe)
-            if gpe then return end
-            if input.UserInputType == Enum.UserInputType.Keyboard then
-                if _G.PortalVisuals._keybinds[CurrentKey] then
-                    _G.PortalVisuals._keybinds[CurrentKey] = nil
-                end
-                CurrentKey = input.KeyCode
-                KeyBtn.Text = CurrentKey.Name
-                _G.PortalVisuals._keybinds[CurrentKey] = Callback
-            end
-            if conn then conn:Disconnect() end
-            waiting = false
-            Utility:Tween(KeyBtn, {BackgroundColor3 = Theme.GlassCard, BackgroundTransparency = 0.4}, 0.3)
-        end)
-    end)
-    _G.PortalVisuals._keybinds[CurrentKey] = Callback
-    return Frame
-end
-
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard then
-        local bind = _G.PortalVisuals._keybinds[input.KeyCode]
-        if bind then
-            task.spawn(bind, input.KeyCode)
-        end
-    end
-end)
-
-local NotifyGui = Utility:Create("ScreenGui", {
-    Name = "PortalNotifications",
-    Parent = CoreGui,
-    ResetOnSpawn = false,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-    DisplayOrder = 9999
-})
-
-local NotifyHolder = Utility:Create("Frame", {
-    Parent = NotifyGui,
-    BackgroundTransparency = 1,
-    Position = UDim2.new(1, -20, 1, -20),
-    AnchorPoint = Vector2.new(1, 1),
-    Size = UDim2.new(0, 320, 0, 600),
-    ZIndex = 200,
-    ClipsDescendants = false
-})
-
-Utility:Create("UIListLayout", {
-    Parent = NotifyHolder,
-    Padding = UDim.new(0, 10),
-    SortOrder = Enum.SortOrder.LayoutOrder,
-    HorizontalAlignment = Enum.HorizontalAlignment.Right,
-    VerticalAlignment = Enum.VerticalAlignment.Bottom,
-    FillDirection = Enum.FillDirection.Vertical
-})
-
-local NotifyCount = 0
-
-local function Notify(title, body, duration)
-    duration = duration or 3
-    NotifyCount = NotifyCount + 1
-    local order = NotifyCount
-
-    local CARD_W = 300
-    local CARD_H = 72
-
-    local Wrapper = Utility:Create("Frame", {
-        Parent = NotifyHolder,
+    local holder = Create("Frame", {
+        Parent = notifyGui,
         BackgroundTransparency = 1,
-        Size = UDim2.new(0, CARD_W, 0, CARD_H),
+        Position = UDim2.new(1,-20,1,-20),
+        AnchorPoint = Vector2.new(1,1),
+        Size = UDim2.new(0,320,0,600),
+        ZIndex = 200,
+        ClipsDescendants = false
+    })
+    self._notifyHolder = holder
+    self._notifyCount  = 0
+
+    Create("UIListLayout", {
+        Parent = holder,
+        Padding = UDim.new(0,10),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        HorizontalAlignment = Enum.HorizontalAlignment.Right,
+        VerticalAlignment = Enum.VerticalAlignment.Bottom,
+        FillDirection = Enum.FillDirection.Vertical
+    })
+end
+
+-- ============================================================
+-- PUBLIC: Notify
+-- ============================================================
+function PortalVisuals:Notify(title, body, duration)
+    duration = duration or 3
+    local T = self._theme
+    self._notifyCount = self._notifyCount + 1
+    local order = self._notifyCount
+    local CW, CH = 300, 72
+
+    local wrapper = Create("Frame", {
+        Parent = self._notifyHolder,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0,CW,0,CH),
         LayoutOrder = order,
         ClipsDescendants = false
     })
 
-    local Card = Utility:Create("Frame", {
-        Parent = Wrapper,
-        BackgroundColor3 = Theme.GlassCard,
+    local card = Create("Frame", {
+        Parent = wrapper,
+        BackgroundColor3 = T.GlassCard,
         BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
-        Size = UDim2.new(0, CARD_W, 0, CARD_H),
-        Position = UDim2.new(0, CARD_W + 20, 0, 0),
+        Size = UDim2.new(0,CW,0,CH),
+        Position = UDim2.new(0,CW+20,0,0),
         ClipsDescendants = true,
         ZIndex = 201
     })
-    Utility:Create("UICorner", {Parent = Card, CornerRadius = UDim.new(0, 14)})
+    Create("UICorner", {Parent = card, CornerRadius = UDim.new(0,14)})
+    Create("UIStroke",  {Parent = card, Color = T.Stroke, Thickness = 1, Transparency = 0.4, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
 
-    local AccentBar = Utility:Create("Frame", {
-        Parent = Card,
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel = 0,
-        Position = UDim2.new(0, 0, 0, 0),
-        Size = UDim2.new(0, 4, 1, 0),
-        ZIndex = 203
-    })
-    Utility:Create("UICorner", {Parent = AccentBar, CornerRadius = UDim.new(0, 4)})
+    local bar = Create("Frame", {Parent = card, BackgroundColor3 = T.Accent, BorderSizePixel = 0, Position = UDim2.new(0,0,0,0), Size = UDim2.new(0,4,1,0), ZIndex = 203})
+    Create("UICorner", {Parent = bar, CornerRadius = UDim.new(0,4)})
 
-    local ProgressBg = Utility:Create("Frame", {
-        Parent = Card,
-        BackgroundColor3 = Theme.TrackOff,
-        BackgroundTransparency = 0.3,
-        BorderSizePixel = 0,
-        Position = UDim2.new(0, 4, 1, -4),
-        Size = UDim2.new(1, -8, 0, 2),
-        ZIndex = 203
-    })
-    Utility:Create("UICorner", {Parent = ProgressBg, CornerRadius = UDim.new(1, 0)})
+    local progressBg = Create("Frame", {Parent = card, BackgroundColor3 = T.TrackOff, BackgroundTransparency = 0.3, BorderSizePixel = 0, Position = UDim2.new(0,4,1,-4), Size = UDim2.new(1,-8,0,2), ZIndex = 203})
+    Create("UICorner", {Parent = progressBg, CornerRadius = UDim.new(1,0)})
+    local fill = Create("Frame", {Parent = progressBg, BackgroundColor3 = T.Accent, BorderSizePixel = 0, Position = UDim2.new(0,0,0,0), Size = UDim2.new(1,0,1,0), ZIndex = 204})
+    Create("UICorner", {Parent = fill, CornerRadius = UDim.new(1,0)})
 
-    local ProgressFill = Utility:Create("Frame", {
-        Parent = ProgressBg,
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel = 0,
-        Position = UDim2.new(0, 0, 0, 0),
-        Size = UDim2.new(1, 0, 1, 0),
-        ZIndex = 204
-    })
-    Utility:Create("UICorner", {Parent = ProgressFill, CornerRadius = UDim.new(1, 0)})
+    local titleLbl = Create("TextLabel", {Parent = card, BackgroundTransparency = 1, Position = UDim2.new(0,16,0,10), Size = UDim2.new(1,-24,0,20), Font = Enum.Font.GothamBold, Text = title, TextColor3 = T.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 202})
+    local bodyLbl  = Create("TextLabel", {Parent = card, BackgroundTransparency = 1, Position = UDim2.new(0,16,0,33), Size = UDim2.new(1,-24,0,28), Font = Enum.Font.Gotham, Text = body, TextColor3 = T.TextSoft, TextSize = 12, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 202})
 
-    local TitleLabel = Utility:Create("TextLabel", {
-        Parent = Card,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 16, 0, 10),
-        Size = UDim2.new(1, -24, 0, 20),
-        Font = Enum.Font.GothamBold,
-        Text = title,
-        TextColor3 = Theme.Text,
-        TextSize = 14,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 202
-    })
-
-    local BodyLabel = Utility:Create("TextLabel", {
-        Parent = Card,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 16, 0, 33),
-        Size = UDim2.new(1, -24, 0, 28),
-        Font = Enum.Font.Gotham,
-        Text = body,
-        TextColor3 = Theme.TextSoft,
-        TextSize = 12,
-        TextWrapped = true,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 202
-    })
-
-    Utility:Create("UIStroke", {
-        Parent = Card,
-        Color = Theme.Stroke,
-        Thickness = 1,
-        Transparency = 0.4,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    })
-
-    TweenService:Create(Card, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)}):Play()
-    TweenService:Create(ProgressFill, TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {Size = UDim2.new(0, 0, 1, 0)}):Play()
+    TweenService:Create(card,  TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0,0,0,0)}):Play()
+    TweenService:Create(fill,  TweenInfo.new(duration, Enum.EasingStyle.Linear), {Size = UDim2.new(0,0,1,0)}):Play()
 
     local dismissed = false
-    local function Dismiss()
+    local function dismiss()
         if dismissed then return end
         dismissed = true
-        TweenService:Create(Card, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(0, CARD_W + 20, 0, 0), BackgroundTransparency = 1}):Play()
-        TweenService:Create(TitleLabel, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {TextTransparency = 1}):Play()
-        TweenService:Create(BodyLabel, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {TextTransparency = 1}):Play()
+        TweenService:Create(card,     TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(0,CW+20,0,0), BackgroundTransparency = 1}):Play()
+        TweenService:Create(titleLbl, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {TextTransparency = 1}):Play()
+        TweenService:Create(bodyLbl,  TweenInfo.new(0.25, Enum.EasingStyle.Quint), {TextTransparency = 1}):Play()
         task.delay(0.3, function()
-            TweenService:Create(Wrapper, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {Size = UDim2.new(0, CARD_W, 0, 0)}):Play()
-            task.delay(0.3, function()
-                Wrapper:Destroy()
+            TweenService:Create(wrapper, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {Size = UDim2.new(0,CW,0,0)}):Play()
+            task.delay(0.3, function() wrapper:Destroy() end)
+        end)
+    end
+
+    card.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.Touch then dismiss() end
+    end)
+    task.delay(duration, dismiss)
+end
+
+-- ============================================================
+-- MAIN WINDOW BUILD
+-- ============================================================
+function PortalVisuals:_buildMainWindow(title, subtitle, W, H)
+    local T = self._theme
+
+    local main = Create("Frame", {
+        Name = "Main",
+        Parent = self._gui,
+        BackgroundColor3 = T.GlassBg,
+        BackgroundTransparency = 0.82,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0.5, -W/2, 0.5, -H/2),
+        Size = UDim2.new(0, W, 0, H),
+        Active = true,
+        Visible = false,
+        ClipsDescendants = true
+    })
+    self:_reg(main, "BackgroundColor3", "GlassBg")
+    self._mainFrame = main
+    Create("UICorner", {Parent = main, CornerRadius = UDim.new(0, 42)})
+    Create("UIStroke",  {Parent = main, Color = T.Stroke, Thickness = 2, Transparency = 0.5})
+
+    -- star container
+    local starContainer = Create("Frame", {Parent = main, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1,0,1,0), ZIndex = 0, ClipsDescendants = true})
+    self._starContainer = starContainer
+
+    -- background image
+    local bgImg = Create("ImageLabel", {Parent = main, BackgroundTransparency = 1, Image = "", ImageTransparency = 1, ScaleType = Enum.ScaleType.Crop, ZIndex = 0, Size = UDim2.new(1,0,1,0)})
+    self._bgImg = bgImg
+
+    -- inner container
+    local inner = Create("Frame", {Parent = main, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1,0,1,0), ZIndex = 2})
+
+    -- shine
+    local shine = Create("Frame", {Parent = inner, BackgroundColor3 = T.Shine, BackgroundTransparency = 0.92, BorderSizePixel = 0, Size = UDim2.new(1,0,0,0.45), ZIndex = 10})
+    Create("UIGradient", {Parent = shine, Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0.55), NumberSequenceKeypoint.new(0.35,0.85), NumberSequenceKeypoint.new(1,1)})})
+
+    -- left panel
+    local left = Create("Frame", {Parent = inner, BackgroundColor3 = T.GlassLeft, BackgroundTransparency = 0.88, BorderSizePixel = 0, Size = UDim2.new(0,220,1,0), ZIndex = 3})
+    self:_reg(left, "BackgroundColor3", "GlassLeft")
+    Create("UICorner", {Parent = left, CornerRadius = UDim.new(0,42)})
+
+    local sep = Create("Frame", {Parent = left, BackgroundColor3 = T.Stroke, BackgroundTransparency = 0.2, BorderSizePixel = 0, Position = UDim2.new(1,-2,0,20), Size = UDim2.new(0,2,1,-40), ZIndex = 4})
+    self:_reg(sep, "BackgroundColor3", "Stroke")
+
+    local titleLbl = Create("TextLabel", {Parent = left, BackgroundTransparency = 1, Position = UDim2.new(0,28,0,28), Size = UDim2.new(1,-40,0,30), Font = Enum.Font.GothamBlack, Text = title, TextColor3 = T.Text, TextSize = 24, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5})
+    self:_reg(titleLbl, "TextColor3", "Text")
+
+    local subLbl = Create("TextLabel", {Parent = left, BackgroundTransparency = 1, Position = UDim2.new(0,28,0,58), Size = UDim2.new(1,-40,0,14), Font = Enum.Font.Gotham, Text = subtitle:upper(), TextColor3 = T.TextMuted, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5})
+    self:_reg(subLbl, "TextColor3", "TextMuted")
+
+    -- tabs holder (left panel)
+    local tabsHolder = Create("Frame", {Parent = left, BackgroundTransparency = 1, Position = UDim2.new(0,28,0,110), Size = UDim2.new(1,-56,1,-200), ZIndex = 5})
+    self._tabsHolder = tabsHolder
+    self._tabsLayout = Create("UIListLayout", {Parent = tabsHolder, Padding = UDim.new(0,4), SortOrder = Enum.SortOrder.LayoutOrder})
+
+    -- profile section (bottom of left panel)
+    self:_buildProfile(left)
+
+    -- content area
+    local contentArea = Create("Frame", {Parent = inner, BackgroundTransparency = 1, Position = UDim2.new(0,220,0,0), Size = UDim2.new(1,-220,1,0), ClipsDescendants = true, ZIndex = 3})
+    self._contentArea = contentArea
+
+    -- dragging
+    self:_makeDraggable(main)
+
+    -- star init if theme has them
+    if T.Stars and T.StarCount and T.StarColor then
+        task.delay(0.2, function() self:_spawnStars(T.StarCount, T.StarColor) end)
+    end
+end
+
+function PortalVisuals:_buildProfile(parent)
+    local T = self._theme
+    local btn = Create("TextButton", {Parent = parent, BackgroundTransparency = 1, Position = UDim2.new(0,28,1,-76), Size = UDim2.new(1,-56,0,54), Text = "", AutoButtonColor = false, ZIndex = 5})
+    local avatarBg = Create("Frame", {Parent = btn, BackgroundColor3 = T.GlassCard, BackgroundTransparency = 0.6, Size = UDim2.new(0,42,0,42), ZIndex = 6})
+    self:_reg(avatarBg, "BackgroundColor3", "GlassCard")
+    Create("UICorner", {Parent = avatarBg, CornerRadius = UDim.new(1,0)})
+    local avatarStroke = Create("UIStroke", {Parent = avatarBg, Color = T.Stroke, Thickness = 1.5, Transparency = 0.5})
+    self:_reg(avatarStroke, "Color", "Stroke")
+    local avatarImg = Create("ImageLabel", {Parent = avatarBg, BackgroundTransparency = 1, Position = UDim2.new(0,2,0,2), Size = UDim2.new(1,-4,1,-4), Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=420&height=420&format=png", ZIndex = 7})
+    Create("UICorner", {Parent = avatarImg, CornerRadius = UDim.new(1,0)})
+    local nameLbl = Create("TextLabel", {Parent = btn, BackgroundTransparency = 1, Position = UDim2.new(0,54,0,2), Size = UDim2.new(1,-64,0,20), Font = Enum.Font.GothamBold, Text = "@" .. LocalPlayer.Name, TextColor3 = T.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6})
+    self:_reg(nameLbl, "TextColor3", "Text")
+    local statusLbl = Create("TextLabel", {Parent = btn, BackgroundTransparency = 1, Position = UDim2.new(0,54,0,24), Size = UDim2.new(1,-64,0,14), Font = Enum.Font.Gotham, Text = "Online", TextColor3 = T.Online, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6})
+    self:_reg(statusLbl, "TextColor3", "Online")
+    btn.MouseEnter:Connect(function()  Tween(avatarBg, {BackgroundTransparency = 0.3}, 0.3, Enum.EasingStyle.Sine) end)
+    btn.MouseLeave:Connect(function()  Tween(avatarBg, {BackgroundTransparency = 0.6}, 0.3, Enum.EasingStyle.Sine) end)
+end
+
+function PortalVisuals:_makeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging  = true
+            dragStart = input.Position
+            startPos  = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- ============================================================
+-- PUBLIC: Toggle open/close
+-- ============================================================
+function PortalVisuals:Toggle()
+    self._isOpen = not self._isOpen
+    local main = self._mainFrame
+    local s = main.AbsoluteSize
+
+    if self._isOpen then
+        main.Visible = true
+        Tween(self._blur, {Size = 20}, 0.9)
+        Tween(main, {Size = UDim2.new(0, s.X, 0, 560), BackgroundTransparency = 0.82}, 0.9)
+    else
+        Tween(self._blur, {Size = 0}, 0.7)
+        local t = Tween(main, {Size = UDim2.new(0, s.X, 0, 0), BackgroundTransparency = 1}, 0.7)
+        t.Completed:Connect(function() if not self._isOpen then main.Visible = false end end)
+    end
+end
+
+-- ============================================================
+-- PUBLIC: SetBackground
+-- ============================================================
+function PortalVisuals:SetBackground(raw)
+    local s = tostring(raw):match("^%s*(.-)%s*$")
+    local uri
+    if s:match("^rbxassetid://%d+$") then uri = s
+    elseif s:match("^%d+$") then uri = "rbxassetid://" .. s
+    else
+        local id = s:match("(%d+)")
+        if id and #id >= 6 then uri = "rbxassetid://" .. id end
+    end
+    if not uri then
+        Tween(self._bgImg, {ImageTransparency = 1}, 0.4)
+        task.delay(0.45, function() self._bgImg.Image = "" end)
+        return
+    end
+    self._bgImg.Image = uri
+    Tween(self._bgImg, {ImageTransparency = 0.45}, 0.4)
+end
+
+-- ============================================================
+-- PUBLIC: SetMenuKey
+-- ============================================================
+function PortalVisuals:SetMenuKey(keyCode)
+    self._keybinds[self._menuKey] = nil
+    self._menuKey = keyCode
+    self._keybinds[keyCode] = function() self:Toggle() end
+end
+
+-- ============================================================
+-- PUBLIC: Tab  (returns Tab object)
+-- ============================================================
+
+--[[
+    local tab = win:Tab("Combat")
+    local sec = tab:Section("Aimbot")
+    sec:Toggle("Silent Aim", "SilentAim", false, callback?)
+    sec:Slider("FOV", 1, 360, 90, callback)
+    sec:TextBox("Webhook URL", "https://...", "", callback)
+    sec:Keybind("Toggle Key", Enum.KeyCode.F, callback)
+    sec:Button("Fire", callback)
+    sec:Label("Some text")
+    sec:Dropdown("Mode", {"Option1","Option2"}, "Option1", callback)
+    sec:ColorPicker("Color", Color3.fromRGB(255,0,0), callback)
+--]]
+
+function PortalVisuals:Tab(name)
+    local T = self._theme
+
+    -- page (scrolling)
+    local page = Create("ScrollingFrame", {
+        Parent = self._contentArea,
+        Name = name .. "Page",
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,1,0),
+        CanvasSize = UDim2.new(0,0,0,0),
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = T.TextMuted,
+        Visible = false,
+        ZIndex = 4
+    })
+    self:_reg(page, "ScrollBarImageColor3", "TextMuted")
+    Create("UIListLayout", {Parent = page, Padding = UDim.new(0,14), SortOrder = Enum.SortOrder.LayoutOrder})
+    Create("UIPadding",    {Parent = page, PaddingLeft = UDim.new(0,22), PaddingRight = UDim.new(0,22), PaddingTop = UDim.new(0,20), PaddingBottom = UDim.new(0,20)})
+    page:FindFirstChildOfClass("UIListLayout"):GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        page.CanvasSize = UDim2.new(0,0,0,page:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 40)
+    end)
+
+    -- tab button
+    local idx = #self._tabs
+    local btn = Create("TextButton", {
+        Parent = self._tabsHolder,
+        Name = name,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,0,44),
+        Font = Enum.Font.GothamBold,
+        Text = name,
+        TextColor3 = T.TextSoft,
+        TextSize = 15,
+        AutoButtonColor = false,
+        LayoutOrder = idx,
+        ZIndex = 6
+    })
+    self:_reg(btn, "TextColor3", "TextSoft")
+
+    local ind = Create("Frame", {Parent = btn, BackgroundColor3 = T.Accent, BorderSizePixel = 0, Position = UDim2.new(0,-12,0.5,-4), Size = UDim2.new(0,5,0,7), BackgroundTransparency = 1, ZIndex = 7})
+    self:_reg(ind, "BackgroundColor3", "Accent")
+    Create("UICorner", {Parent = ind, CornerRadius = UDim.new(1,0)})
+
+    local tabData = {Name = name, Button = btn, Indicator = ind, Page = page}
+    table.insert(self._tabs, tabData)
+
+    local win = self
+    local function activate()
+        if win._currentTab == name then return end
+        -- deactivate old
+        for _, t in ipairs(win._tabs) do
+            if t.Name == win._currentTab then
+                Tween(t.Button, {TextColor3 = win._theme.TextSoft}, 0.5)
+                Tween(t.Indicator, {BackgroundTransparency = 1}, 0.4)
+                t.Page.Visible = false
+            end
+        end
+        win._currentTab = name
+        Tween(btn, {TextColor3 = win._theme.Text}, 0.5)
+        Tween(ind, {BackgroundTransparency = 0}, 0.4)
+        page.CanvasPosition = Vector2.new(0,0)
+        page.Visible = true
+        page.Position = UDim2.new(0,60,0,0)
+        Tween(page, {Position = UDim2.new(0,0,0,0)}, 0.5)
+    end
+
+    btn.MouseEnter:Connect(function() if win._currentTab ~= name then Tween(btn, {TextColor3 = win._theme.Text}, 0.3, Enum.EasingStyle.Sine) end end)
+    btn.MouseLeave:Connect(function() if win._currentTab ~= name then Tween(btn, {TextColor3 = win._theme.TextSoft}, 0.3, Enum.EasingStyle.Sine) end end)
+    btn.MouseButton1Click:Connect(activate)
+
+    -- auto-select first tab
+    if #self._tabs == 1 then
+        win._currentTab = name
+        btn.TextColor3 = T.Text
+        ind.BackgroundTransparency = 0
+        page.Visible = true
+    end
+
+    -- ── Tab object returned to caller ──────────────────────────
+    local Tab = {}
+    Tab._page = page
+    Tab._win  = win
+
+    function Tab:Section(sectionTitle)
+        return win:_buildSection(page, sectionTitle)
+    end
+
+    return Tab
+end
+
+-- ============================================================
+-- SECTION BUILDER
+-- ============================================================
+function PortalVisuals:_buildSection(parent, sectionTitle)
+    local T = self._theme
+
+    local section = Create("Frame", {
+        Parent = parent,
+        BackgroundColor3 = T.GlassCard,
+        BackgroundTransparency = 0.78,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,0,0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        LayoutOrder = #parent:GetChildren() + 1,
+        ZIndex = 5
+    })
+    self:_reg(section, "BackgroundColor3", "GlassCard")
+    Create("UICorner", {Parent = section, CornerRadius = UDim.new(0,30)})
+    Create("UIStroke",  {Parent = section, Color = T.Stroke, Thickness = 1.5, Transparency = 0.6})
+
+    local shineS = Create("Frame", {Parent = section, BackgroundColor3 = T.Shine, BackgroundTransparency = 0.88, Size = UDim2.new(1,0,0,0.5), ZIndex = 6})
+    Create("UIGradient", {Parent = shineS, Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0.65), NumberSequenceKeypoint.new(1,1)})})
+
+    local accent = Create("Frame", {Parent = section, BackgroundColor3 = T.Accent, Position = UDim2.new(0,18,0,18), Size = UDim2.new(0,4,0,20), ZIndex = 7})
+    self:_reg(accent, "BackgroundColor3", "Accent")
+    Create("UICorner", {Parent = accent, CornerRadius = UDim.new(1,0)})
+
+    Create("TextLabel", {Parent = section, BackgroundTransparency = 1, Position = UDim2.new(0,36,0,0), Size = UDim2.new(1,-50,0,56), Font = Enum.Font.GothamBold, Text = sectionTitle, TextColor3 = T.Text, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 7})
+
+    local content = Create("Frame", {Parent = section, BackgroundTransparency = 1, Position = UDim2.new(0,18,0,56), Size = UDim2.new(1,-36,0,0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 7})
+    Create("UIListLayout", {Parent = content, Padding = UDim.new(0,8), SortOrder = Enum.SortOrder.LayoutOrder})
+    Create("UIPadding",    {Parent = content, PaddingBottom = UDim.new(0,16)})
+
+    -- ── Section object ─────────────────────────────────────────
+    local Sec = {}
+    Sec._content = content
+    local win = self
+
+    -- TOGGLE
+    function Sec:Toggle(label, flagName, default, callback)
+        local T2 = win._theme
+        local frame = Create("Frame", {Parent = content, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,38), LayoutOrder = #content:GetChildren()+1})
+        local lbl   = Create("TextLabel", {Parent = frame, BackgroundTransparency = 1, Size = UDim2.new(1,-60,1,0), Font = Enum.Font.Gotham, Text = label, TextColor3 = T2.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8})
+        win:_reg(lbl, "TextColor3", "Text")
+        local enabled = default or false
+        win._flags[flagName] = enabled
+
+        local track = Create("Frame", {Parent = frame, BackgroundColor3 = enabled and T2.TrackOn or T2.TrackOff, BorderSizePixel = 0, Position = UDim2.new(1,-50,0.5,-13), Size = UDim2.new(0,50,0,26), ZIndex = 8})
+        win:_reg(track, "BackgroundColor3", enabled and "TrackOn" or "TrackOff")
+        Create("UICorner", {Parent = track, CornerRadius = UDim.new(1,0)})
+        local thumb = Create("Frame", {Parent = track, BackgroundColor3 = Color3.fromRGB(255,255,255), BorderSizePixel = 0, Position = enabled and UDim2.new(1,-24,0.5,-11) or UDim2.new(0,2,0.5,-11), Size = UDim2.new(0,22,0,22), ZIndex = 9})
+        Create("UICorner", {Parent = thumb, CornerRadius = UDim.new(1,0)})
+
+        local debounce = false
+        local function setEnabled(v)
+            enabled = v
+            win._flags[flagName] = v
+            if v then
+                Tween(track, {BackgroundColor3 = win._theme.TrackOn},  0.5, Enum.EasingStyle.Quart)
+                Tween(thumb, {Position = UDim2.new(1,-24,0.5,-11)},    0.5, Enum.EasingStyle.Quart)
+            else
+                Tween(track, {BackgroundColor3 = win._theme.TrackOff}, 0.5, Enum.EasingStyle.Quart)
+                Tween(thumb, {Position = UDim2.new(0,2,0.5,-11)},      0.5, Enum.EasingStyle.Quart)
+            end
+            if callback then task.spawn(callback, v) end
+        end
+
+        track.InputBegan:Connect(function(input)
+            if (input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch) or debounce then return end
+            debounce = true
+            setEnabled(not enabled)
+            task.wait(0.5)
+            debounce = false
+        end)
+
+        -- returns control table so caller can set programmatically
+        return {Set = setEnabled, Get = function() return enabled end}
+    end
+
+    -- SLIDER
+    function Sec:Slider(label, min, max, default, callback)
+        local T2 = win._theme
+        local frame = Create("Frame", {Parent = content, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,48), LayoutOrder = #content:GetChildren()+1})
+        local lbl   = Create("TextLabel", {Parent = frame, BackgroundTransparency = 1, Position = UDim2.new(0,4,0,0), Size = UDim2.new(0.5,-4,0,20), Font = Enum.Font.Gotham, Text = label, TextColor3 = T2.TextMuted, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8})
+        win:_reg(lbl, "TextColor3", "TextMuted")
+        local valLbl = Create("TextLabel", {Parent = frame, BackgroundTransparency = 1, Position = UDim2.new(0.5,4,0,0), Size = UDim2.new(0.5,-8,0,20), Font = Enum.Font.GothamBold, Text = tostring(default), TextColor3 = T2.Text, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 8})
+        win:_reg(valLbl, "TextColor3", "Text")
+
+        local trackFrame = Create("Frame", {Parent = frame, BackgroundColor3 = T2.TrackOff, BorderSizePixel = 0, Position = UDim2.new(0,4,0,26), Size = UDim2.new(1,-8,0,6), ZIndex = 8})
+        win:_reg(trackFrame, "BackgroundColor3", "TrackOff")
+        Create("UICorner", {Parent = trackFrame, CornerRadius = UDim.new(1,0)})
+        local fillF = Create("Frame", {Parent = trackFrame, BackgroundColor3 = T2.TrackOn, BorderSizePixel = 0, Size = UDim2.new((default-min)/(max-min),0,1,0), ZIndex = 9})
+        win:_reg(fillF, "BackgroundColor3", "TrackOn")
+        Create("UICorner", {Parent = fillF, CornerRadius = UDim.new(1,0)})
+        local thumbF = Create("Frame", {Parent = trackFrame, BackgroundColor3 = Color3.fromRGB(255,255,255), BorderSizePixel = 0, Position = UDim2.new((default-min)/(max-min),-8,0.5,-8), Size = UDim2.new(0,16,0,16), ZIndex = 10})
+        Create("UICorner", {Parent = thumbF, CornerRadius = UDim.new(1,0)})
+
+        local dragging = false
+        local function update(val)
+            local v = math.clamp(val, min, max)
+            local a = (v - min) / (max - min)
+            fillF.Size  = UDim2.new(a, 0, 1, 0)
+            thumbF.Position = UDim2.new(a, -8, 0.5, -8)
+            valLbl.Text = string.format("%.2f", v)
+            if callback then callback(v) end
+        end
+        local function inputToVal(input)
+            local abs = input.Position.X - trackFrame.AbsolutePosition.X
+            return min + (max-min) * math.clamp(abs / trackFrame.AbsoluteSize.X, 0, 1)
+        end
+        trackFrame.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true; update(inputToVal(input))
+            end
+        end)
+        thumbF.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(inputToVal(input)) end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+        end)
+        return {Set = update}
+    end
+
+    -- TEXTBOX
+    function Sec:TextBox(label, placeholder, default, callback)
+        local T2 = win._theme
+        local frame = Create("Frame", {Parent = content, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,38), LayoutOrder = #content:GetChildren()+1})
+        local lbl   = Create("TextLabel", {Parent = frame, BackgroundTransparency = 1, Size = UDim2.new(0.4,-4,1,0), Font = Enum.Font.Gotham, Text = label, TextColor3 = T2.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8})
+        win:_reg(lbl, "TextColor3", "Text")
+        local box = Create("TextBox", {Parent = frame, BackgroundColor3 = T2.GlassCard, BackgroundTransparency = 0.6, BorderSizePixel = 0, Position = UDim2.new(0.4,0,0.5,-15), Size = UDim2.new(0.6,0,0,30), Font = Enum.Font.GothamBold, PlaceholderText = placeholder, Text = default or "", TextColor3 = T2.Text, TextSize = 13, ZIndex = 8})
+        win:_reg(box, "BackgroundColor3", "GlassCard")
+        win:_reg(box, "TextColor3", "Text")
+        Create("UICorner", {Parent = box, CornerRadius = UDim.new(0,14)})
+        Create("UIStroke",  {Parent = box, Color = T2.Stroke, Thickness = 1.5, Transparency = 0.6})
+        box.FocusLost:Connect(function() if callback then callback(box.Text) end end)
+        return {Get = function() return box.Text end, Set = function(v) box.Text = v end}
+    end
+
+    -- KEYBIND
+    function Sec:Keybind(label, defaultKey, callback)
+        local T2 = win._theme
+        local frame = Create("Frame", {Parent = content, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,38), LayoutOrder = #content:GetChildren()+1})
+        local lbl   = Create("TextLabel", {Parent = frame, BackgroundTransparency = 1, Size = UDim2.new(1,-120,1,0), Font = Enum.Font.Gotham, Text = label, TextColor3 = T2.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8})
+        win:_reg(lbl, "TextColor3", "Text")
+        local currentKey = defaultKey
+        local keyBtn = Create("TextButton", {Parent = frame, BackgroundColor3 = T2.GlassCard, BackgroundTransparency = 0.4, BorderSizePixel = 0, Position = UDim2.new(1,-110,0.5,-15), Size = UDim2.new(0,100,0,30), Font = Enum.Font.GothamBold, Text = currentKey.Name, TextColor3 = T2.Text, TextSize = 13, AutoButtonColor = false, ZIndex = 8})
+        win:_reg(keyBtn, "BackgroundColor3", "GlassCard")
+        win:_reg(keyBtn, "TextColor3", "Text")
+        Create("UICorner", {Parent = keyBtn, CornerRadius = UDim.new(0,14)})
+        Create("UIStroke",  {Parent = keyBtn, Color = T2.Accent, Thickness = 1.5, Transparency = 0.4})
+
+        win._keybinds[currentKey] = callback
+        local waiting = false
+        keyBtn.MouseButton1Click:Connect(function()
+            if waiting then return end
+            waiting = true
+            keyBtn.Text = "..."
+            Tween(keyBtn, {BackgroundColor3 = win._theme.Accent, BackgroundTransparency = 0.1}, 0.3)
+            local conn
+            conn = UserInputService.InputBegan:Connect(function(input, gpe)
+                if gpe then return end
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    win._keybinds[currentKey] = nil
+                    currentKey = input.KeyCode
+                    keyBtn.Text = currentKey.Name
+                    win._keybinds[currentKey] = callback
+                end
+                if conn then conn:Disconnect() end
+                waiting = false
+                Tween(keyBtn, {BackgroundColor3 = win._theme.GlassCard, BackgroundTransparency = 0.4}, 0.3)
             end)
         end)
     end
 
-    Card.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            Dismiss()
-        end
-    end)
-
-    task.delay(duration, Dismiss)
-end
-
--- ============================================================
--- СТАНДАРТНЫЕ ВКЛАДКИ
--- ============================================================
-local MContent = CreateSection(MainPage, "Actions")
-
-local function RandomFunction()
-    local randomNum = math.random(1, 100)
-    Notify("Random Function", "Triggered: " .. tostring(randomNum), 3)
-end
-
-CreateKeybind(MContent, "Trigger Random Function", Enum.KeyCode.R, function()
-    RandomFunction()
-end)
-
-local VContent = CreateSection(VisualsPage, "Visual Options")
-local _, RainToggle = CreateToggle(VContent, "Enable Rain Particles", "RainEffect", false)
-
-CreateKeybind(VContent, "Toggle Rain Bind", Enum.KeyCode.T, function()
-    local newState = not _G.PortalVisuals.RainEffect
-    _G.PortalVisuals.RainEffect = newState
-    RainToggle.SetState(newState)
-    Notify("Rain Visual", newState and "Enabled" or "Disabled", 3)
-end)
-
-CreateSlider(VContent, "Rain Intensity", 10, 100, 45, function(val) print("Rain set to: " .. val) end)
-
-local SContent = CreateSection(SettingsPage, "Settings Options")
-CreateTextBox(SContent, "Custom Webhook", "URL...", "", function(text) print("Webhook set: " .. text) end)
-CreateSlider(SContent, "Max Particle Count", 100, 1000, 500, function(val) print("Particle cap: " .. val) end)
-
--- ============================================================
--- МЕНЮ КЛЮЧ
--- ============================================================
-local MenuKey = Enum.KeyCode.K
-local IsOpen = true
-local blurTween = nil
-local menuTween = nil
-
-local function ToggleUI()
-    if blurTween then blurTween:Cancel() end
-    if menuTween then menuTween:Cancel() end
-    IsOpen = not IsOpen
-    if IsOpen then
-        Main.Visible = true
-        blurTween = Utility:Tween(Blur, {Size = 20}, 0.9, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-        menuTween = Utility:Tween(Main, {Size = UDim2.new(0, 720, 0, 560), Position = UDim2.new(0.5, -360, 0.5, -280), BackgroundTransparency = 0.82}, 0.9, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-        UpdateBackgroundSize()
-    else
-        blurTween = Utility:Tween(Blur, {Size = 0}, 0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-        menuTween = Utility:Tween(Main, {Size = UDim2.new(0, 720, 0, 0), BackgroundTransparency = 1}, 0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-        menuTween.Completed:Connect(function() if not IsOpen then Main.Visible = false end end)
+    -- BUTTON
+    function Sec:Button(label, callback)
+        local T2 = win._theme
+        local btn = Create("TextButton", {
+            Parent = content,
+            BackgroundColor3 = T2.Accent,
+            BackgroundTransparency = 0.3,
+            BorderSizePixel = 0,
+            Size = UDim2.new(1,0,0,36),
+            Font = Enum.Font.GothamBold,
+            Text = label,
+            TextColor3 = T2.Text,
+            TextSize = 14,
+            AutoButtonColor = false,
+            LayoutOrder = #content:GetChildren()+1,
+            ZIndex = 8
+        })
+        win:_reg(btn, "BackgroundColor3", "Accent")
+        win:_reg(btn, "TextColor3", "Text")
+        Create("UICorner", {Parent = btn, CornerRadius = UDim.new(0,18)})
+        btn.MouseEnter:Connect(function()  Tween(btn, {BackgroundTransparency = 0.1}, 0.2, Enum.EasingStyle.Sine) end)
+        btn.MouseLeave:Connect(function()  Tween(btn, {BackgroundTransparency = 0.3}, 0.2, Enum.EasingStyle.Sine) end)
+        btn.MouseButton1Click:Connect(function()
+            Tween(btn, {BackgroundTransparency = 0.6}, 0.1, Enum.EasingStyle.Sine)
+            task.delay(0.15, function() Tween(btn, {BackgroundTransparency = 0.3}, 0.2, Enum.EasingStyle.Sine) end)
+            if callback then task.spawn(callback) end
+        end)
     end
+
+    -- LABEL
+    function Sec:Label(text)
+        local T2 = win._theme
+        local lbl = Create("TextLabel", {Parent = content, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,22), Font = Enum.Font.Gotham, Text = text, TextColor3 = T2.TextMuted, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = #content:GetChildren()+1, ZIndex = 8})
+        win:_reg(lbl, "TextColor3", "TextMuted")
+        return {Set = function(v) lbl.Text = v end}
+    end
+
+    -- DROPDOWN
+    function Sec:Dropdown(label, options, default, callback)
+        local T2 = win._theme
+        local selected = default or options[1]
+        local open = false
+
+        local frame = Create("Frame", {Parent = content, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,38), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = #content:GetChildren()+1, ZIndex = 8, ClipsDescendants = false})
+
+        local header = Create("TextButton", {Parent = frame, BackgroundColor3 = T2.GlassCard, BackgroundTransparency = 0.5, BorderSizePixel = 0, Size = UDim2.new(1,0,0,36), Font = Enum.Font.GothamBold, Text = "▾  " .. selected, TextColor3 = T2.Text, TextSize = 14, AutoButtonColor = false, ZIndex = 9})
+        win:_reg(header, "BackgroundColor3", "GlassCard")
+        win:_reg(header, "TextColor3", "Text")
+        Create("UICorner", {Parent = header, CornerRadius = UDim.new(0,18)})
+        Create("UIStroke",  {Parent = header, Color = T2.Stroke, Thickness = 1.5, Transparency = 0.5})
+
+        local dropdown = Create("Frame", {Parent = frame, BackgroundColor3 = T2.GlassCard, BackgroundTransparency = 0.1, BorderSizePixel = 0, Position = UDim2.new(0,0,0,40), Size = UDim2.new(1,0,0,0), Visible = false, ClipsDescendants = true, ZIndex = 20})
+        win:_reg(dropdown, "BackgroundColor3", "GlassCard")
+        Create("UICorner",    {Parent = dropdown, CornerRadius = UDim.new(0,18)})
+        Create("UIListLayout",{Parent = dropdown, Padding = UDim.new(0,2), SortOrder = Enum.SortOrder.LayoutOrder})
+        Create("UIPadding",   {Parent = dropdown, PaddingTop = UDim.new(0,6), PaddingBottom = UDim.new(0,6), PaddingLeft = UDim.new(0,6), PaddingRight = UDim.new(0,6)})
+
+        local totalH = 0
+        for i, opt in ipairs(options) do
+            local optBtn = Create("TextButton", {Parent = dropdown, BackgroundColor3 = T2.GlassCard, BackgroundTransparency = opt == selected and 0.4 or 0.85, BorderSizePixel = 0, Size = UDim2.new(1,0,0,30), Font = Enum.Font.Gotham, Text = opt, TextColor3 = T2.Text, TextSize = 13, AutoButtonColor = false, LayoutOrder = i, ZIndex = 21})
+            win:_reg(optBtn, "TextColor3", "Text")
+            Create("UICorner", {Parent = optBtn, CornerRadius = UDim.new(0,12)})
+            totalH = totalH + 32
+            optBtn.MouseButton1Click:Connect(function()
+                selected = opt
+                header.Text = "▾  " .. selected
+                if callback then task.spawn(callback, selected) end
+                Tween(dropdown, {Size = UDim2.new(1,0,0,0)}, 0.3)
+                task.delay(0.3, function() dropdown.Visible = false end)
+                open = false
+            end)
+        end
+
+        header.MouseButton1Click:Connect(function()
+            open = not open
+            if open then
+                dropdown.Visible = true
+                dropdown.Size = UDim2.new(1,0,0,0)
+                Tween(dropdown, {Size = UDim2.new(1,0,0,totalH+12)}, 0.35)
+            else
+                Tween(dropdown, {Size = UDim2.new(1,0,0,0)}, 0.3)
+                task.delay(0.3, function() dropdown.Visible = false end)
+            end
+        end)
+
+        return {Get = function() return selected end}
+    end
+
+    -- COLOR PICKER
+    function Sec:ColorPicker(label, default, callback)
+        local T2 = win._theme
+        local current = default or Color3.fromRGB(255,255,255)
+        local frame = Create("Frame", {Parent = content, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,38), LayoutOrder = #content:GetChildren()+1, ZIndex = 8})
+        local lbl   = Create("TextLabel", {Parent = frame, BackgroundTransparency = 1, Size = UDim2.new(1,-60,1,0), Font = Enum.Font.Gotham, Text = label, TextColor3 = T2.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8})
+        win:_reg(lbl, "TextColor3", "Text")
+
+        local swatch = Create("TextButton", {Parent = frame, BackgroundColor3 = current, BorderSizePixel = 0, Position = UDim2.new(1,-50,0.5,-13), Size = UDim2.new(0,44,0,26), Text = "", AutoButtonColor = false, ZIndex = 8})
+        Create("UICorner", {Parent = swatch, CornerRadius = UDim.new(0,10)})
+        Create("UIStroke",  {Parent = swatch, Color = T2.Stroke, Thickness = 1.5, Transparency = 0.4})
+
+        -- minimal HSV picker popup
+        local pickerOpen = false
+        local popup = Create("Frame", {Parent = frame, BackgroundColor3 = T2.GlassCard, BackgroundTransparency = 0.08, BorderSizePixel = 0, Position = UDim2.new(1,-210,0,42), Size = UDim2.new(0,200,0,0), Visible = false, ClipsDescendants = true, ZIndex = 30})
+        win:_reg(popup, "BackgroundColor3", "GlassCard")
+        Create("UICorner", {Parent = popup, CornerRadius = UDim.new(0,16)})
+        Create("UIStroke",  {Parent = popup, Color = T2.Stroke, Thickness = 1.5, Transparency = 0.4})
+
+        -- hue bar
+        local hueBar = Create("Frame", {Parent = popup, BackgroundTransparency = 0, BorderSizePixel = 0, Position = UDim2.new(0,10,0,10), Size = UDim2.new(1,-20,0,18), ZIndex = 31})
+        Create("UICorner", {Parent = hueBar, CornerRadius = UDim.new(0,9)})
+        Create("UIGradient", {Parent = hueBar, Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0,   Color3.fromRGB(255,0,0)),
+            ColorSequenceKeypoint.new(1/6, Color3.fromRGB(255,255,0)),
+            ColorSequenceKeypoint.new(2/6, Color3.fromRGB(0,255,0)),
+            ColorSequenceKeypoint.new(3/6, Color3.fromRGB(0,255,255)),
+            ColorSequenceKeypoint.new(4/6, Color3.fromRGB(0,0,255)),
+            ColorSequenceKeypoint.new(5/6, Color3.fromRGB(255,0,255)),
+            ColorSequenceKeypoint.new(1,   Color3.fromRGB(255,0,0))
+        })})
+
+        local h, s, v = Color3.toHSV(current)
+        local hueThumb = Create("Frame", {Parent = hueBar, BackgroundColor3 = Color3.fromRGB(255,255,255), BorderSizePixel = 0, Position = UDim2.new(h,-5,0.5,-9), Size = UDim2.new(0,10,0,18), ZIndex = 32})
+        Create("UICorner", {Parent = hueThumb, CornerRadius = UDim.new(1,0)})
+
+        local hexBox = Create("TextBox", {Parent = popup, BackgroundColor3 = T2.GlassCard, BackgroundTransparency = 0.5, BorderSizePixel = 0, Position = UDim2.new(0,10,0,38), Size = UDim2.new(1,-20,0,26), Font = Enum.Font.GothamBold, Text = string.format("#%02X%02X%02X", math.floor(current.R*255), math.floor(current.G*255), math.floor(current.B*255)), TextColor3 = T2.Text, TextSize = 12, ZIndex = 31})
+        win:_reg(hexBox, "BackgroundColor3", "GlassCard")
+        win:_reg(hexBox, "TextColor3", "Text")
+        Create("UICorner", {Parent = hexBox, CornerRadius = UDim.new(0,10)})
+
+        local function applyColor(c)
+            current = c
+            swatch.BackgroundColor3 = c
+            h, s, v = Color3.toHSV(c)
+            hueThumb.Position = UDim2.new(h,-5,0.5,-9)
+            hexBox.Text = string.format("#%02X%02X%02X", math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255))
+            if callback then task.spawn(callback, c) end
+        end
+
+        local hueDragging = false
+        hueBar.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                hueDragging = true
+                local a = math.clamp((input.Position.X - hueBar.AbsolutePosition.X) / hueBar.AbsoluteSize.X, 0, 1)
+                applyColor(Color3.fromHSV(a, 1, 1))
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if hueDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local a = math.clamp((input.Position.X - hueBar.AbsolutePosition.X) / hueBar.AbsoluteSize.X, 0, 1)
+                applyColor(Color3.fromHSV(a, 1, 1))
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then hueDragging = false end
+        end)
+
+        hexBox.FocusLost:Connect(function()
+            local hex = hexBox.Text:gsub("#","")
+            if #hex == 6 then
+                local r = tonumber(hex:sub(1,2),16)
+                local g = tonumber(hex:sub(3,4),16)
+                local b = tonumber(hex:sub(5,6),16)
+                if r and g and b then applyColor(Color3.fromRGB(r,g,b)) end
+            end
+        end)
+
+        swatch.MouseButton1Click:Connect(function()
+            pickerOpen = not pickerOpen
+            if pickerOpen then
+                popup.Visible = true
+                popup.Size = UDim2.new(0,200,0,0)
+                Tween(popup, {Size = UDim2.new(0,200,0,74)}, 0.35)
+            else
+                Tween(popup, {Size = UDim2.new(0,200,0,0)}, 0.3)
+                task.delay(0.3, function() popup.Visible = false end)
+            end
+        end)
+
+        return {Get = function() return current end, Set = applyColor}
+    end
+
+    return Sec
 end
 
-_G.PortalVisuals._keybinds[MenuKey] = ToggleUI
+-- ============================================================
+-- PUBLIC: Destroy / cleanup
+-- ============================================================
+function PortalVisuals:Destroy()
+    self:_clearStars()
+    if self._inputConn  then self._inputConn:Disconnect() end
+    if self._gui        then self._gui:Destroy() end
+    if self._wmGui      then self._wmGui:Destroy() end
+    if self._notifyGui  then self._notifyGui:Destroy() end
+    if self._blur       then self._blur:Destroy() end
+    table.clear(self._keybinds)
+    table.clear(self._themeReg)
+end
 
 -- ============================================================
--- НАСТРОЙКИ (РАСШИРЕННЫЕ)
+-- BUILT-IN SETTINGS TAB  (opt-in)
+-- addSettingsTab(win) — call after win:Tab() calls if you want
+-- the default theme-switcher + background panels pre-built
 -- ============================================================
-local BGSection = CreateSection(SettingsPage, "Background Asset")
-CreateTextBox(BGSection, "Asset ID", "e.g. 12345678", "", function(text) SetBackgroundAsset(text) end)
-CreateTextBox(BGSection, "Media URL / ID", "rbxassetid or numeric ID", "", function(text) SetBackgroundMedia(text) end)
+function PortalVisuals:AddSettingsTab()
+    local tab = self:Tab("Settings")
 
-local ThemeSection = CreateSection(SettingsPage, "Theme Switcher")
-for name, _ in pairs(Themes) do
-    local Frame = Utility:Create("Frame", {Parent = ThemeSection, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 38), LayoutOrder = #ThemeSection:GetChildren() + 1})
-    local hasStar = Themes[name].Stars
-    local label = hasStar and ("✦ " .. name) or name
-    local Btn = Utility:Create("TextButton", {Parent = Frame, BackgroundColor3 = Theme.GlassCard, BackgroundTransparency = 0.6, BorderSizePixel = 0, Size = UDim2.new(1, 0, 1, 0), Font = Enum.Font.GothamBold, Text = label, TextColor3 = Theme.Text, TextSize = 14, AutoButtonColor = false, ZIndex = 6})
-    RegisterThemeObject(Btn, "BackgroundColor3", "GlassCard")
-    RegisterThemeObject(Btn, "TextColor3", "Text")
-    Utility:Create("UICorner", {Parent = Btn, CornerRadius = UDim.new(0, 20)})
-    Utility:Create("UIStroke", {Parent = Btn, Color = Theme.Stroke, Thickness = 1.5, Transparency = 0.6})
-    Btn.MouseButton1Click:Connect(function()
-        SetTheme(name)
-        Notify("Theme", name .. " applied", 2)
+    local bgSec = tab:Section("Background Asset")
+    bgSec:TextBox("Asset ID",   "numeric ID",          "", function(v) self:SetBackground(v) end)
+    bgSec:TextBox("rbxassetid", "rbxassetid://...",    "", function(v) self:SetBackground(v) end)
+
+    local thSec = tab:Section("Theme")
+    for name, _ in pairs(Themes) do
+        local hasStar = Themes[name].Stars
+        thSec:Button((hasStar and "✦ " or "") .. name, function()
+            self:SetTheme(name)
+        end)
+    end
+
+    local keySec = tab:Section("Menu Keybind")
+    keySec:Keybind("Toggle UI", self._menuKey, function(key)
+        self:SetMenuKey(key)
     end)
-end
 
-local MenuKeybindFrame = CreateKeybind(SContent, "Toggle Menu Key", Enum.KeyCode.J, function(key)
-    _G.PortalVisuals._keybinds[MenuKey] = nil
-    MenuKey = key
-    _G.PortalVisuals._keybinds[MenuKey] = ToggleUI
-end)
-
--- ============================================================
--- ЗАПУСК
--- ============================================================
-Main.Visible = true
-Main.Size = UDim2.new(0, 720, 0, 0)
-Utility:Tween(Blur, {Size = 20}, 1.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-Utility:Tween(Main, {Size = UDim2.new(0, 720, 0, 560), Position = UDim2.new(0.5, -360, 0.5, -280), BackgroundTransparency = 0.82}, 1.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-
-if Tabs[1] then
-    CurrentTab = Tabs[1].Name
-    Tabs[1].Button.TextColor3 = Theme.Text
-    Tabs[1].Indicator.BackgroundTransparency = 0
-    if Tabs[1].Page then Tabs[1].Page.Visible = true end
+    return tab
 end
 
 -- ============================================================
--- ЭКСПОРТ API ДЛЯ РАСШИРЕНИЯ
+-- RETURN LIBRARY
 -- ============================================================
-_G.PortalVisuals._addTab = function(name)
-    local page = CreatePage(name)
-    AddTab(name, page)
-    return page
-end
+return PortalVisuals
 
-_G.PortalVisuals._createSection = function(parent, title)
-    return CreateSection(parent, title)
-end
+--[[
+══════════════════════════════════════════════════════════════
+  QUICK REFERENCE — external script usage
+══════════════════════════════════════════════════════════════
 
-_G.PortalVisuals._toggle = function(parent, label, key, default)
-    local frame, control = CreateToggle(parent, label, key, default)
-    return frame, control
-end
+  local PV  = loadstring(game:HttpGet("YOUR_RAW_URL"))()
 
-_G.PortalVisuals._slider = function(parent, label, min, max, default, callback)
-    return CreateSlider(parent, label, min, max, default, callback)
-end
+  -- 1. create a window
+  local win = PV.new("My Hub", {
+      theme    = "Dark",          -- "Dark","Light","Forest","Purple","Sunset","Cosmos","Nebula"
+      subtitle = "v1.2",
+      menuKey  = Enum.KeyCode.K,
+      watermark = true,
+      size     = {720, 560},
+  })
 
-_G.PortalVisuals._textbox = function(parent, label, placeholder, default, callback)
-    return CreateTextBox(parent, label, placeholder, default, callback)
-end
+  -- 2. create a tab
+  local tab = win:Tab("Combat")
 
-_G.PortalVisuals._keybind = function(parent, label, defaultKey, callback)
-    return CreateKeybind(parent, label, defaultKey, callback)
-end
+  -- 3. create a section inside it
+  local sec = tab:Section("Aimbot")
 
-_G.PortalVisuals._notify = function(title, body, duration)
-    Notify(title, body, duration)
-end
+  -- 4. add components to the section
+  local tog = sec:Toggle("Silent Aim",  "SilentAim",  false, function(v) ... end)
+  local sld = sec:Slider("FOV",         1, 360, 90,          function(v) ... end)
+  local txt = sec:TextBox("Webhook",    "URL...", "",         function(v) ... end)
+              sec:Keybind("Toggle Key", Enum.KeyCode.F,       function()  ... end)
+              sec:Button("Fire Now",                          function()  ... end)
+  local lbl = sec:Label("Some info text")
+  local drp = sec:Dropdown("Mode", {"Rage","Legit"}, "Legit", function(v) ... end)
+  local clr = sec:ColorPicker("Color",  Color3.fromRGB(255,0,0), function(v) ... end)
 
-_G.PortalVisuals._settingsPage = SettingsPage
-_G.PortalVisuals._mainPage = MainPage
-_G.PortalVisuals._visualsPage = VisualsPage
+  -- 5. optional pre-built settings tab
+  win:AddSettingsTab()
 
--- ============================================================
--- ОЧИСТКА
--- ============================================================
-_G.PortalVisuals._cleanup = function()
-    ClearStars()
-    if layoutConn then layoutConn:Disconnect() end
-    if ScreenGui then ScreenGui:Destroy() end
-    if WatermarkGui then WatermarkGui:Destroy() end
-    if Blur then Blur:Destroy() end
-    if NotifyGui then NotifyGui:Destroy() end
-    table.clear(_G.PortalVisuals._keybinds)
-end
+  -- 6. programmatic control
+  tog.Set(true)            -- force toggle on
+  sld.Set(45)              -- move slider
+  lbl.Set("New text")
+  drp.Get()                -- returns selected string
+  clr.Get()                -- returns Color3
+  win:SetTheme("Cosmos")
+  win:SetBackground("12345678")
+  win:SetMenuKey(Enum.KeyCode.RightAlt)
+  win:Notify("Title", "Body", 3)
+  win:Toggle()             -- open/close programmatically
+  win:Destroy()            -- full cleanup
 
-task.delay(1.4, function()
-    Notify("Portal Visuals", "Recovery Engine Initialized", 4)
-end)
-
-print("=== PortalVisuals UI Loaded ===")
-print("API exported to _G.PortalVisuals")
-print("Available methods: _addTab, _createSection, _toggle, _slider, _textbox, _keybind, _notify")
+══════════════════════════════════════════════════════════════
+--]]
