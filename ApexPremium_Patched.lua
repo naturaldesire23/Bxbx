@@ -1,8 +1,6 @@
--- PortalVisuals_Lib.lua  v2.1
--- loadstring-compatible UI library
--- local PV  = loadstring(game:HttpGet("YOUR_RAW_URL"))()
--- local win = PV.new("My Hub", { theme="Dark", menuKey=Enum.KeyCode.K })
-
+-- ============================================================
+-- PortalVisuals_Lib.lua  v3.0
+-- ============================================================
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local RunService       = game:GetService("RunService")
@@ -13,90 +11,58 @@ local Lighting         = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 
--- ============================================================
--- CLEANUP
--- ============================================================
 if _G._PortalVisualsLib and _G._PortalVisualsLib._cleanup then
     pcall(_G._PortalVisualsLib._cleanup)
 end
 _G._PortalVisualsLib = {}
 local _lib = _G._PortalVisualsLib
 
--- ============================================================
--- THEMES
--- ============================================================
 local Themes = {
     Dark = {
         GlassBg  = Color3.fromRGB(20, 22, 28),   GlassLeft = Color3.fromRGB(25, 27, 35),
         GlassCard= Color3.fromRGB(35, 38, 48),   Accent    = Color3.fromRGB(0, 150, 255),
-        Text     = Color3.fromRGB(240,245,255),   TextSoft  = Color3.fromRGB(180,190,210),
-        TextMuted= Color3.fromRGB(120,130,150),   Online    = Color3.fromRGB(50,220,120),
-        TrackOff = Color3.fromRGB(60, 65, 80),    TrackOn   = Color3.fromRGB(0, 150, 255),
-        Stroke   = Color3.fromRGB(60, 65, 80),    Shine     = Color3.fromRGB(255,255,255),
-        Stars = false
+        Text     = Color3.fromRGB(240,245,255),  TextSoft  = Color3.fromRGB(180,190,210),
+        TextMuted= Color3.fromRGB(120,130,150),  Online    = Color3.fromRGB(50,220,120),
+        TrackOff = Color3.fromRGB(60, 65, 80),   TrackOn   = Color3.fromRGB(0, 150, 255),
+        Stroke   = Color3.fromRGB(60, 65, 80),   Shine     = Color3.fromRGB(255,255,255),
+        Stars    = false
     },
-    Light = {
-        GlassBg  = Color3.fromRGB(245,248,252),  GlassLeft = Color3.fromRGB(240,244,250),
-        GlassCard= Color3.fromRGB(255,255,255),  Accent    = Color3.fromRGB(0,122,255),
-        Text     = Color3.fromRGB(15,20,30),     TextSoft  = Color3.fromRGB(80,90,110),
-        TextMuted= Color3.fromRGB(140,150,170),  Online    = Color3.fromRGB(50,200,100),
-        TrackOff = Color3.fromRGB(200,205,215),  TrackOn   = Color3.fromRGB(0,122,255),
-        Stroke   = Color3.fromRGB(210,215,225),  Shine     = Color3.fromRGB(255,255,255),
-        Stars = false
-    },
-    Forest = {
-        GlassBg  = Color3.fromRGB(15,30,18),    GlassLeft = Color3.fromRGB(20,35,22),
-        GlassCard= Color3.fromRGB(28,55,35),    Accent    = Color3.fromRGB(50,210,75),
-        Text     = Color3.fromRGB(210,245,220), TextSoft  = Color3.fromRGB(130,175,140),
-        TextMuted= Color3.fromRGB(80,125,90),   Online    = Color3.fromRGB(70,230,100),
-        TrackOff = Color3.fromRGB(45,75,50),    TrackOn   = Color3.fromRGB(50,210,75),
-        Stroke   = Color3.fromRGB(40,80,48),    Shine     = Color3.fromRGB(160,220,170),
-        Stars = false
-    },
-    Purple = {
-        GlassBg  = Color3.fromRGB(22,18,35),    GlassLeft = Color3.fromRGB(28,22,45),
-        GlassCard= Color3.fromRGB(40,30,65),    Accent    = Color3.fromRGB(160,80,255),
-        Text     = Color3.fromRGB(235,225,255), TextSoft  = Color3.fromRGB(170,150,210),
-        TextMuted= Color3.fromRGB(110,90,150),  Online    = Color3.fromRGB(120,220,140),
-        TrackOff = Color3.fromRGB(55,40,80),    TrackOn   = Color3.fromRGB(160,80,255),
-        Stroke   = Color3.fromRGB(60,45,90),    Shine     = Color3.fromRGB(200,180,255),
-        Stars = false
-    },
-    Sunset = {
-        GlassBg  = Color3.fromRGB(35,20,18),    GlassLeft = Color3.fromRGB(42,25,20),
-        GlassCard= Color3.fromRGB(60,32,28),    Accent    = Color3.fromRGB(255,140,50),
-        Text     = Color3.fromRGB(255,235,220), TextSoft  = Color3.fromRGB(210,165,140),
-        TextMuted= Color3.fromRGB(160,115,95),  Online    = Color3.fromRGB(100,220,120),
-        TrackOff = Color3.fromRGB(80,45,35),    TrackOn   = Color3.fromRGB(255,140,50),
-        Stroke   = Color3.fromRGB(90,50,40),    Shine     = Color3.fromRGB(255,200,160),
-        Stars = false
+    Amethyst = {
+        GlassBg  = Color3.fromRGB(20, 20, 20),   GlassLeft = Color3.fromRGB(30, 20, 45),
+        GlassCard= Color3.fromRGB(40, 30, 65),   Accent    = Color3.fromRGB(97, 62, 167),
+        Text     = Color3.fromRGB(240, 240, 240),TextSoft  = Color3.fromRGB(160, 140, 180),
+        TextMuted= Color3.fromRGB(110, 90, 150),  Online    = Color3.fromRGB(120, 220, 140),
+        TrackOff = Color3.fromRGB(55, 40, 80),   TrackOn   = Color3.fromRGB(97, 62, 167),
+        Stroke   = Color3.fromRGB(60, 45, 90),   Shine     = Color3.fromRGB(200,180,255),
+        Stars    = true, StarColor = Color3.fromRGB(255,200,255), StarCount = 60
     },
     Cosmos = {
-        GlassBg  = Color3.fromRGB(6,8,20),     GlassLeft = Color3.fromRGB(10,12,28),
-        GlassCard= Color3.fromRGB(18,22,45),   Accent    = Color3.fromRGB(140,200,255),
-        Text     = Color3.fromRGB(220,235,255),TextSoft  = Color3.fromRGB(150,170,210),
-        TextMuted= Color3.fromRGB(80,100,150), Online    = Color3.fromRGB(80,230,160),
-        TrackOff = Color3.fromRGB(35,40,70),   TrackOn   = Color3.fromRGB(140,200,255),
-        Stroke   = Color3.fromRGB(40,55,100),  Shine     = Color3.fromRGB(200,220,255),
-        Stars = true, StarColor = Color3.fromRGB(200,220,255), StarCount = 80
-    },
-    Nebula = {
-        GlassBg  = Color3.fromRGB(10,5,22),    GlassLeft = Color3.fromRGB(16,8,32),
-        GlassCard= Color3.fromRGB(30,12,55),   Accent    = Color3.fromRGB(220,110,255),
-        Text     = Color3.fromRGB(240,220,255),TextSoft  = Color3.fromRGB(185,150,220),
-        TextMuted= Color3.fromRGB(120,80,160), Online    = Color3.fromRGB(100,230,180),
-        TrackOff = Color3.fromRGB(55,25,80),   TrackOn   = Color3.fromRGB(220,110,255),
-        Stroke   = Color3.fromRGB(80,35,120),  Shine     = Color3.fromRGB(230,180,255),
-        Stars = true, StarColor = Color3.fromRGB(255,200,255), StarCount = 100
+        GlassBg  = Color3.fromRGB(6,8,20),      GlassLeft = Color3.fromRGB(10,12,28),
+        GlassCard= Color3.fromRGB(18,22,45),    Accent    = Color3.fromRGB(140,200,255),
+        Text     = Color3.fromRGB(220,235,255), TextSoft  = Color3.fromRGB(150,170,210),
+        TextMuted= Color3.fromRGB(80,100,150),  Online    = Color3.fromRGB(80,230,160),
+        TrackOff = Color3.fromRGB(35,40,70),    TrackOn   = Color3.fromRGB(140,200,255),
+        Stroke   = Color3.fromRGB(40,55,100),   Shine     = Color3.fromRGB(200,220,255),
+        Stars    = true, StarColor = Color3.fromRGB(200,220,255), StarCount = 80
     }
 }
 
--- ============================================================
--- UTILITY
--- ============================================================
+local LucideAssets = {
+    ["settings"] = "rbxassetid://10734950309",
+    ["image"] = "rbxassetid://10723415040",
+    ["palette"] = "rbxassetid://10734910430",
+    ["keyboard"] = "rbxassetid://10723416765",
+    ["chevron-down"] = "rbxassetid://10709790948",
+    ["check"] = "rbxassetid://10709790644",
+    ["x"] = "rbxassetid://10747384394",
+    ["bell"] = "rbxassetid://10709775704"
+}
+
 local function Create(Class, Props)
     local obj = Instance.new(Class)
-    for k, v in pairs(Props) do if k ~= "Parent" then obj[k] = v end end
+    for k, v in pairs(Props) do 
+        if k ~= "Parent" then obj[k] = v end 
+    end
     if Props.Parent then obj.Parent = Props.Parent end
     return obj
 end
@@ -107,9 +73,6 @@ local function Tween(obj, props, dur, style, dir)
     t:Play(); return t
 end
 
--- ============================================================
--- LIBRARY
--- ============================================================
 local PortalVisuals = {}
 PortalVisuals.__index = PortalVisuals
 PortalVisuals.Themes  = Themes
@@ -121,7 +84,7 @@ function PortalVisuals.new(title, options)
     self._theme     = Themes[options.theme or "Dark"] or Themes.Dark
     self._themeReg  = {}
     self._stars     = {}
-    self._keybinds  = {}   -- [KeyCode] = { callbacks = {id=fn, ...} }
+    self._keybinds  = {} 
     self._tabs      = {}
     self._currentTab= nil
     self._isOpen    = true
@@ -129,26 +92,19 @@ function PortalVisuals.new(title, options)
     self._W         = (options.size and options.size[1]) or 720
     self._H         = (options.size and options.size[2]) or 560
 
-    -- ── ScreenGui ─────────────────────────────────────────────
     self._gui = Create("ScreenGui", {
         Name = "PortalVisuals_"..title, Parent = CoreGui,
         ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         DisplayOrder = 999, IgnoreGuiInset = true
     })
 
-    -- ── Blur ──────────────────────────────────────────────────
     self._blur = Create("BlurEffect", {Size = 0, Parent = Lighting})
 
-    -- ── Watermark ─────────────────────────────────────────────
     if options.watermark ~= false then self:_buildWatermark(title) end
 
-    -- ── Notification layer ────────────────────────────────────
     self:_buildNotifyLayer()
-
-    -- ── Main window ───────────────────────────────────────────
     self:_buildMainWindow(title, options.subtitle or "")
 
-    -- ── Global input router ───────────────────────────────────
     local menuKey = options.menuKey or Enum.KeyCode.K
     self._menuKey  = menuKey
     self:Bind(menuKey, "$$menu$$", function() self:Toggle() end)
@@ -158,11 +114,12 @@ function PortalVisuals.new(title, options)
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
         local entry = self._keybinds[input.KeyCode]
         if entry then
-            for _, cb in pairs(entry.callbacks) do task.spawn(cb) end
+            for _, cb in pairs(entry.callbacks) do 
+                task.spawn(cb) 
+            end
         end
     end)
 
-    -- open animation
     self._win.Visible = true
     self._win.Size = UDim2.new(0, self._W, 0, 0)
     Tween(self._blur, {Size = 20}, 1.2)
@@ -173,12 +130,6 @@ function PortalVisuals.new(title, options)
     return self
 end
 
--- ============================================================
--- KEYBIND API
--- Bind(key, id, fn)   — register fn under id for key
--- Unbind(key, id)     — remove that specific id
--- UnbindAll(key)      — wipe all callbacks for key
--- ============================================================
 function PortalVisuals:Bind(key, id, fn)
     if not self._keybinds[key] then self._keybinds[key] = {callbacks={}} end
     self._keybinds[key].callbacks[id] = fn
@@ -193,9 +144,6 @@ function PortalVisuals:UnbindAll(key)
     self._keybinds[key] = nil
 end
 
--- ============================================================
--- THEME INTERNALS
--- ============================================================
 function PortalVisuals:_reg(obj, prop, key)
     table.insert(self._themeReg, {Object=obj, Property=prop, Key=key})
 end
@@ -243,9 +191,6 @@ function PortalVisuals:SetTheme(name)
     self:Notify("Theme", name.." applied", 2)
 end
 
--- ============================================================
--- WATERMARK
--- ============================================================
 function PortalVisuals:_buildWatermark(title)
     local T = self._theme
     local wmGui = Create("ScreenGui", {
@@ -259,7 +204,7 @@ function PortalVisuals:_buildWatermark(title)
         Parent=wmGui, AnchorPoint=Vector2.new(0.5,0),
         Position=UDim2.new(0.5,0,0,4), Size=UDim2.new(0,300,0,32),
         BackgroundColor3=T.GlassBg, BackgroundTransparency=0.92,
-        BorderSizePixel=0, ZIndex=100
+        BorderSizePixel=0, ZIndex=100, ClipsDescendants=true
     })
     self:_reg(card,"BackgroundColor3","GlassBg")
     Create("UICorner",{Parent=card,CornerRadius=UDim.new(0,12)})
@@ -298,9 +243,6 @@ function PortalVisuals:_buildWatermark(title)
     end)
 end
 
--- ============================================================
--- NOTIFICATION LAYER
--- ============================================================
 function PortalVisuals:_buildNotifyLayer()
     local notifyGui = Create("ScreenGui", {
         Name="PortalNotify", Parent=CoreGui,
@@ -310,14 +252,13 @@ function PortalVisuals:_buildNotifyLayer()
     self._notifyGui    = notifyGui
     self._notifyCount  = 0
 
-    -- anchor bottom-right; use absolute pixel position so IgnoreGuiInset doesn't shift it
     local holder = Create("Frame", {
         Parent=notifyGui,
         BackgroundTransparency=1,
         AnchorPoint=Vector2.new(1,1),
         Position=UDim2.new(1,-14,1,-14),
         Size=UDim2.new(0,320,1,-28),
-        ClipsDescendants=false,
+        ClipsDescendants=true,
         ZIndex=200
     })
     self._notifyHolder = holder
@@ -330,9 +271,6 @@ function PortalVisuals:_buildNotifyLayer()
     })
 end
 
--- ============================================================
--- PUBLIC: Notify
--- ============================================================
 function PortalVisuals:Notify(title, body, duration)
     duration = duration or 3
     local T  = self._theme
@@ -342,23 +280,21 @@ function PortalVisuals:Notify(title, body, duration)
     local wrapper = Create("Frame",{
         Parent=self._notifyHolder, BackgroundTransparency=1,
         Size=UDim2.new(1,0,0,PILL_H), LayoutOrder=self._notifyCount,
-        ClipsDescendants=false
+        ClipsDescendants=true
     })
 
     local pill = Create("Frame",{
         Parent=wrapper, BackgroundColor3=T.GlassCard, BackgroundTransparency=0.06,
         BorderSizePixel=0, Size=UDim2.new(1,0,1,0),
-        Position=UDim2.new(0,340,0,0), ClipsDescendants=false, ZIndex=210
+        Position=UDim2.new(0,340,0,0), ClipsDescendants=true, ZIndex=210
     })
     Create("UICorner",{Parent=pill, CornerRadius=UDim.new(0,12)})
     Create("UIStroke",{Parent=pill, Color=T.Stroke, Thickness=1, Transparency=0.5, ApplyStrokeMode=Enum.ApplyStrokeMode.Border})
 
-    -- left accent stripe
     local stripe = Create("Frame",{Parent=pill,BackgroundColor3=T.Accent,BorderSizePixel=0,Position=UDim2.new(0,0,0,0),Size=UDim2.new(0,3,1,0),ZIndex=211})
     Create("UICorner",{Parent=stripe,CornerRadius=UDim.new(0,12)})
     self:_reg(stripe,"BackgroundColor3","Accent")
 
-    -- green dot
     local dot = Create("Frame",{Parent=pill,BackgroundColor3=T.Online,BorderSizePixel=0,Position=UDim2.new(0,13,0.5,-4),Size=UDim2.new(0,8,0,8),ZIndex=212})
     Create("UICorner",{Parent=dot,CornerRadius=UDim.new(1,0)})
     self:_reg(dot,"BackgroundColor3","Online")
@@ -371,19 +307,17 @@ function PortalVisuals:Notify(title, body, duration)
         end
     end)
 
-    local titleLbl = Create("TextLabel",{Parent=pill,BackgroundTransparency=1,Position=UDim2.new(0,28,0,7),Size=UDim2.new(1,-42,0,16),Font=Enum.Font.GothamBold,Text=title,TextColor3=T.Text,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=212})
-    local bodyLbl  = Create("TextLabel",{Parent=pill,BackgroundTransparency=1,Position=UDim2.new(0,28,0,25),Size=UDim2.new(1,-42,0,14),Font=Enum.Font.Gotham,Text=body,TextColor3=T.TextSoft,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=212})
+    local titleLbl = Create("TextLabel",{Parent=pill,BackgroundTransparency=1,Position=UDim2.new(0,28,0,7),Size=UDim2.new(1,-54,0,16),Font=Enum.Font.GothamBold,Text=title,TextColor3=T.Text,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=212})
+    local bodyLbl  = Create("TextLabel",{Parent=pill,BackgroundTransparency=1,Position=UDim2.new(0,28,0,25),Size=UDim2.new(1,-54,0,14),Font=Enum.Font.Gotham,Text=body,TextColor3=T.TextSoft,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=212})
 
     local closeBtn = Create("TextButton",{Parent=pill,BackgroundTransparency=1,Position=UDim2.new(1,-26,0,0),Size=UDim2.new(0,26,1,0),Font=Enum.Font.GothamBold,Text="×",TextColor3=T.TextMuted,TextSize=15,AutoButtonColor=false,ZIndex=213})
 
-    -- progress bar
     local pgBg = Create("Frame",{Parent=pill,BackgroundColor3=T.TrackOff,BackgroundTransparency=0.5,BorderSizePixel=0,Position=UDim2.new(0,4,1,-3),Size=UDim2.new(1,-8,0,2),ZIndex=213})
     Create("UICorner",{Parent=pgBg,CornerRadius=UDim.new(1,0)})
     local pgFill = Create("Frame",{Parent=pgBg,BackgroundColor3=T.Accent,BorderSizePixel=0,Size=UDim2.new(1,0,1,0),ZIndex=214})
     Create("UICorner",{Parent=pgFill,CornerRadius=UDim.new(1,0)})
     self:_reg(pgFill,"BackgroundColor3","Accent")
 
-    -- slide in from right
     Tween(pill,{Position=UDim2.new(0,0,0,0)},0.4,Enum.EasingStyle.Quint)
     Tween(pgFill,{Size=UDim2.new(0,0,1,0)},duration,Enum.EasingStyle.Linear)
 
@@ -406,26 +340,10 @@ function PortalVisuals:Notify(title, body, duration)
     task.delay(duration, dismiss)
 end
 
--- ============================================================
--- MAIN WINDOW
--- ============================================================
 function PortalVisuals:_buildMainWindow(title, subtitle)
     local T = self._theme
     local W, H = self._W, self._H
 
-    --[[
-        Background fix:
-        The frame that has UICorner MUST also have ClipsDescendants=true for
-        Roblox to clip children to the rounded shape. The background ImageLabel
-        must be a direct child of that same frame. Any intermediate wrapper
-        between the clip frame and the image breaks the fill into the corners.
-
-        Left panel: UICorner removed — it was creating an inner rounded rect
-        that visually cut into the window edges. The clip frame already handles
-        the outer rounding, so the left panel sits flush.
-    --]]
-
-    -- single frame: has UICorner + ClipsDescendants + background image as direct child
     local win = Create("Frame", {
         Name = "PortalWin", Parent = self._gui,
         BackgroundColor3 = T.GlassBg, BackgroundTransparency = 0.1,
@@ -434,16 +352,15 @@ function PortalVisuals:_buildMainWindow(title, subtitle)
         Position = UDim2.new(0.5,0,0.5,0),
         Size = UDim2.new(0,W,0,H),
         Visible = false,
-        ClipsDescendants = true,   -- this frame clips; bg image is direct child
+        ClipsDescendants = true, 
         ZIndex = 1
     })
-    Create("UICorner",{Parent=win,CornerRadius=UDim.new(0,42)})  -- only one UICorner on the window
+    Create("UICorner",{Parent=win,CornerRadius=UDim.new(0,42)}) 
     local winStroke = Create("UIStroke",{Parent=win,Color=T.Stroke,Thickness=2,Transparency=0.5})
     self:_reg(winStroke,"Color","Stroke")
     self:_reg(win,"BackgroundColor3","GlassBg")
     self._win = win
 
-    -- ── Background image — direct child of win, fills 100% ────
     local bgImg = Create("ImageLabel",{
         Parent=win, BackgroundTransparency=1,
         Image="", ImageTransparency=1,
@@ -453,20 +370,17 @@ function PortalVisuals:_buildMainWindow(title, subtitle)
     })
     self._bgImg = bgImg
 
-    -- ── Star container ────────────────────────────────────────
     local starContainer = Create("Frame",{
         Parent=win,BackgroundTransparency=1,BorderSizePixel=0,
         Size=UDim2.new(1,0,1,0),ZIndex=3,ClipsDescendants=false
     })
     self._starContainer = starContainer
 
-    -- ── Inner container (UI lives here, above bg) ─────────────
     local inner = Create("Frame",{
         Parent=win,BackgroundTransparency=1,BorderSizePixel=0,
         Size=UDim2.new(1,0,1,0),ZIndex=4
     })
 
-    -- top shine
     local shine = Create("Frame",{
         Parent=inner,BackgroundColor3=T.Shine,BackgroundTransparency=0.92,
         BorderSizePixel=0,Size=UDim2.new(1,0,0,0.45),ZIndex=5
@@ -475,13 +389,12 @@ function PortalVisuals:_buildMainWindow(title, subtitle)
         NumberSequenceKeypoint.new(0,0.55),NumberSequenceKeypoint.new(0.35,0.85),NumberSequenceKeypoint.new(1,1)
     })})
 
-    -- ── Left panel — NO UICorner, sits flush inside win's clip ─
     local left = Create("Frame",{
         Parent=inner,BackgroundColor3=T.GlassLeft,BackgroundTransparency=0.88,
         BorderSizePixel=0,Size=UDim2.new(0,220,1,0),ZIndex=5
     })
     self:_reg(left,"BackgroundColor3","GlassLeft")
-    -- thin right separator only
+    
     local sep = Create("Frame",{
         Parent=left,BackgroundColor3=T.Stroke,BackgroundTransparency=0.3,
         BorderSizePixel=0,Position=UDim2.new(1,-1,0,0),Size=UDim2.new(0,1,1,0),ZIndex=6
@@ -504,17 +417,16 @@ function PortalVisuals:_buildMainWindow(title, subtitle)
     })
     self:_reg(subLbl,"TextColor3","TextMuted")
 
-    -- tab buttons
     local tabsHolder = Create("Frame",{
         Parent=left,BackgroundTransparency=1,
-        Position=UDim2.new(0,14,0,88),Size=UDim2.new(1,-28,1,-190),ZIndex=7
+        Position=UDim2.new(0,14,0,88),Size=UDim2.new(1,-28,1,-190),ZIndex=7,
+        ClipsDescendants=true
     })
     self._tabsHolder = tabsHolder
     Create("UIListLayout",{Parent=tabsHolder,Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder})
 
     self:_buildProfile(left)
 
-    -- ── Content area ──────────────────────────────────────────
     local contentArea = Create("Frame",{
         Parent=inner,BackgroundTransparency=1,
         Position=UDim2.new(0,220,0,0),Size=UDim2.new(1,-220,1,0),
@@ -527,9 +439,6 @@ function PortalVisuals:_buildMainWindow(title, subtitle)
     end
 end
 
--- ============================================================
--- PROFILE
--- ============================================================
 function PortalVisuals:_buildProfile(parent)
     local T = self._theme
     local c = Create("Frame",{Parent=parent,BackgroundTransparency=1,Position=UDim2.new(0,14,1,-70),Size=UDim2.new(1,-28,0,56),ZIndex=7})
@@ -553,9 +462,6 @@ function PortalVisuals:_buildProfile(parent)
     self:_reg(sLbl,"TextColor3","Online")
 end
 
--- ============================================================
--- PUBLIC: Toggle
--- ============================================================
 function PortalVisuals:Toggle()
     self._isOpen = not self._isOpen
     if self._isOpen then
@@ -569,9 +475,6 @@ function PortalVisuals:Toggle()
     end
 end
 
--- ============================================================
--- PUBLIC: SetBackground  (fills top-to-bottom correctly)
--- ============================================================
 function PortalVisuals:SetBackground(raw)
     local s = tostring(raw):match("^%s*(.-)%s*$")
     local uri
@@ -596,19 +499,13 @@ function PortalVisuals:ClearBackground()
     task.delay(0.45,function() if self._bgImg and self._bgImg.Parent then self._bgImg.Image="" end end)
 end
 
--- ============================================================
--- PUBLIC: SetMenuKey
--- ============================================================
 function PortalVisuals:SetMenuKey(keyCode)
     self:Unbind(self._menuKey,"$$menu$$")
     self._menuKey = keyCode
     self:Bind(keyCode,"$$menu$$",function() self:Toggle() end)
 end
 
--- ============================================================
--- TAB
--- ============================================================
-function PortalVisuals:Tab(name)
+function PortalVisuals:Tab(name, iconId)
     local T = self._theme
 
     local page = Create("ScrollingFrame",{
@@ -617,7 +514,7 @@ function PortalVisuals:Tab(name)
         Size=UDim2.new(1,0,1,0),CanvasSize=UDim2.new(0,0,0,0),
         ScrollBarThickness=3,ScrollBarImageColor3=T.Accent,
         ScrollBarImageTransparency=0.5,ScrollingDirection=Enum.ScrollingDirection.Y,
-        Visible=false,ZIndex=6
+        Visible=false,ZIndex=6, ClipsDescendants=true
     })
     self:_reg(page,"ScrollBarImageColor3","Accent")
     local pageLayout = Create("UIListLayout",{Parent=page,Padding=UDim.new(0,12),SortOrder=Enum.SortOrder.LayoutOrder})
@@ -631,11 +528,27 @@ function PortalVisuals:Tab(name)
         Parent=self._tabsHolder, Name=name,
         BackgroundTransparency=1,BorderSizePixel=0,
         Size=UDim2.new(1,0,0,40),Font=Enum.Font.GothamBold,
-        Text="  "..name,TextColor3=T.TextSoft,TextSize=14,
+        Text="",TextColor3=T.TextSoft,TextSize=14,
         AutoButtonColor=false,LayoutOrder=idx,
-        TextXAlignment=Enum.TextXAlignment.Left,ZIndex=8
+        TextXAlignment=Enum.TextXAlignment.Left,ZIndex=8, ClipsDescendants=true
     })
     self:_reg(btn,"TextColor3","TextSoft")
+
+    local iconPadding = iconId and 28 or 0
+    local btnText = Create("TextLabel", {
+        Parent=btn, BackgroundTransparency=1, Size=UDim2.new(1, -iconPadding, 1, 0),
+        Position=UDim2.new(0, iconPadding, 0, 0), Text=name, Font=Enum.Font.GothamBold,
+        TextColor3=T.TextSoft, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=9
+    })
+    self:_reg(btnText, "TextColor3", "TextSoft")
+
+    if iconId then
+        local icon = Create("ImageLabel", {
+            Parent=btn, BackgroundTransparency=1, Size=UDim2.new(0, 18, 0, 18),
+            Position=UDim2.new(0, 8, 0.5, -9), Image=iconId, ImageColor3=T.TextSoft, ZIndex=9
+        })
+        self:_reg(icon, "ImageColor3", "TextSoft")
+    end
 
     local ind = Create("Frame",{Parent=btn,BackgroundColor3=T.Accent,BorderSizePixel=0,Position=UDim2.new(0,-2,0.5,-5),Size=UDim2.new(0,4,0,10),BackgroundTransparency=1,ZIndex=9})
     self:_reg(ind,"BackgroundColor3","Accent")
@@ -644,7 +557,7 @@ function PortalVisuals:Tab(name)
     local hBg = Create("Frame",{Parent=btn,BackgroundColor3=T.GlassCard,BackgroundTransparency=1,BorderSizePixel=0,Size=UDim2.new(1,0,1,0),ZIndex=7})
     Create("UICorner",{Parent=hBg,CornerRadius=UDim.new(0,10)})
 
-    local tabData = {Name=name,Button=btn,Indicator=ind,Page=page,HoverBg=hBg}
+    local tabData = {Name=name,Button=btn,Text=btnText,Indicator=ind,Page=page,HoverBg=hBg}
     table.insert(self._tabs,tabData)
     local win = self
 
@@ -652,14 +565,14 @@ function PortalVisuals:Tab(name)
         if win._currentTab==name then return end
         for _,t in ipairs(win._tabs) do
             if t.Name==win._currentTab then
-                Tween(t.Button,{TextColor3=win._theme.TextSoft},0.4)
+                Tween(t.Text,{TextColor3=win._theme.TextSoft},0.4)
                 Tween(t.Indicator,{BackgroundTransparency=1},0.3)
                 Tween(t.HoverBg,{BackgroundTransparency=1},0.3)
                 t.Page.Visible=false
             end
         end
         win._currentTab=name
-        Tween(btn,{TextColor3=win._theme.Text},0.4)
+        Tween(btnText,{TextColor3=win._theme.Text},0.4)
         Tween(ind,{BackgroundTransparency=0},0.3)
         Tween(hBg,{BackgroundTransparency=0.88},0.3)
         page.CanvasPosition=Vector2.new(0,0)
@@ -668,13 +581,13 @@ function PortalVisuals:Tab(name)
         Tween(page,{Position=UDim2.new(0,0,0,0)},0.4)
     end
 
-    btn.MouseEnter:Connect(function() if win._currentTab~=name then Tween(btn,{TextColor3=win._theme.Text},0.2,Enum.EasingStyle.Sine); Tween(hBg,{BackgroundTransparency=0.93},0.2,Enum.EasingStyle.Sine) end end)
-    btn.MouseLeave:Connect(function() if win._currentTab~=name then Tween(btn,{TextColor3=win._theme.TextSoft},0.2,Enum.EasingStyle.Sine); Tween(hBg,{BackgroundTransparency=1},0.2,Enum.EasingStyle.Sine) end end)
+    btn.MouseEnter:Connect(function() if win._currentTab~=name then Tween(btnText,{TextColor3=win._theme.Text},0.2,Enum.EasingStyle.Sine); Tween(hBg,{BackgroundTransparency=0.93},0.2,Enum.EasingStyle.Sine) end end)
+    btn.MouseLeave:Connect(function() if win._currentTab~=name then Tween(btnText,{TextColor3=win._theme.TextSoft},0.2,Enum.EasingStyle.Sine); Tween(hBg,{BackgroundTransparency=1},0.2,Enum.EasingStyle.Sine) end end)
     btn.MouseButton1Click:Connect(activate)
 
     if #self._tabs==1 then
         win._currentTab=name
-        btn.TextColor3=T.Text; ind.BackgroundTransparency=0; hBg.BackgroundTransparency=0.88; page.Visible=true
+        btnText.TextColor3=T.Text; ind.BackgroundTransparency=0; hBg.BackgroundTransparency=0.88; page.Visible=true
     end
 
     local Tab={}; Tab._page=page; Tab._win=win
@@ -682,9 +595,6 @@ function PortalVisuals:Tab(name)
     return Tab
 end
 
--- ============================================================
--- SECTION
--- ============================================================
 function PortalVisuals:_buildSection(parent, sectionTitle)
     local T = self._theme
 
@@ -711,7 +621,6 @@ function PortalVisuals:_buildSection(parent, sectionTitle)
 
     local Sec={}; Sec._content=content; local win=self
 
-    -- TOGGLE
     function Sec:Toggle(label,flagName,default,callback)
         local T2=win._theme
         local frame=Create("Frame",{Parent=content,BackgroundTransparency=1,Size=UDim2.new(1,0,0,36),LayoutOrder=#content:GetChildren()+1})
@@ -739,7 +648,6 @@ function PortalVisuals:_buildSection(parent, sectionTitle)
         return {Set=setEnabled,Get=function() return enabled end}
     end
 
-    -- SLIDER
     function Sec:Slider(label,min,max,default,callback)
         local T2=win._theme
         local frame=Create("Frame",{Parent=content,BackgroundTransparency=1,Size=UDim2.new(1,0,0,50),LayoutOrder=#content:GetChildren()+1})
@@ -772,7 +680,6 @@ function PortalVisuals:_buildSection(parent, sectionTitle)
         return {Set=update}
     end
 
-    -- TEXTBOX
     function Sec:TextBox(label,placeholder,default,callback)
         local T2=win._theme
         local frame=Create("Frame",{Parent=content,BackgroundTransparency=1,Size=UDim2.new(1,0,0,36),LayoutOrder=#content:GetChildren()+1})
@@ -787,8 +694,6 @@ function PortalVisuals:_buildSection(parent, sectionTitle)
         return {Get=function() return box.Text end,Set=function(v) box.Text=v end}
     end
 
-    -- KEYBIND ELEMENT
-    -- Returns {Get, SetCallback, Clear}
     function Sec:Keybind(label, defaultKey, callback)
         local T2=win._theme
         local frame=Create("Frame",{Parent=content,BackgroundTransparency=1,Size=UDim2.new(1,0,0,36),LayoutOrder=#content:GetChildren()+1})
@@ -797,7 +702,6 @@ function PortalVisuals:_buildSection(parent, sectionTitle)
         local currentKey=defaultKey
         local BIND_ID = "$$keybind_element_"..label.."$$"
 
-        -- register initial callback
         if callback then win:Bind(currentKey,BIND_ID,callback) end
 
         local keyBtn=Create("TextButton",{Parent=frame,BackgroundColor3=T2.GlassCard,BackgroundTransparency=0.45,BorderSizePixel=0,Position=UDim2.new(1,-108,0.5,-14),Size=UDim2.new(0,98,0,28),Font=Enum.Font.GothamBold,Text=currentKey.Name,TextColor3=T2.Text,TextSize=12,AutoButtonColor=false,ZIndex=10})
@@ -814,7 +718,6 @@ function PortalVisuals:_buildSection(parent, sectionTitle)
             conn=UserInputService.InputBegan:Connect(function(input,gpe)
                 if gpe then return end
                 if input.UserInputType~=Enum.UserInputType.Keyboard then return end
-                -- move callback from old key to new key
                 win:Unbind(currentKey,BIND_ID)
                 currentKey=input.KeyCode
                 keyBtn.Text=currentKey.Name
@@ -834,7 +737,6 @@ function PortalVisuals:_buildSection(parent, sectionTitle)
         }
     end
 
-    -- BUTTON
     function Sec:Button(label,callback)
         local T2=win._theme
         local btn=Create("TextButton",{Parent=content,BackgroundColor3=T2.Accent,BackgroundTransparency=0.3,BorderSizePixel=0,Size=UDim2.new(1,0,0,34),Font=Enum.Font.GothamBold,Text=label,TextColor3=T2.Text,TextSize=13,AutoButtonColor=false,LayoutOrder=#content:GetChildren()+1,ZIndex=10})
@@ -848,7 +750,6 @@ function PortalVisuals:_buildSection(parent, sectionTitle)
         end)
     end
 
-    -- LABEL
     function Sec:Label(text)
         local T2=win._theme
         local lbl=Create("TextLabel",{Parent=content,BackgroundTransparency=1,Size=UDim2.new(1,0,0,20),Font=Enum.Font.Gotham,Text=text,TextColor3=T2.TextMuted,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,LayoutOrder=#content:GetChildren()+1,ZIndex=10,TextWrapped=true})
@@ -856,7 +757,6 @@ function PortalVisuals:_buildSection(parent, sectionTitle)
         return {Set=function(v) lbl.Text=v end}
     end
 
-    -- DROPDOWN
     function Sec:Dropdown(label,options,default,callback)
         local T2=win._theme; local selected=default or options[1]; local open=false
         local frame=Create("Frame",{Parent=content,BackgroundTransparency=1,Size=UDim2.new(1,0,0,36),AutomaticSize=Enum.AutomaticSize.Y,LayoutOrder=#content:GetChildren()+1,ZIndex=10,ClipsDescendants=false})
@@ -892,7 +792,6 @@ function PortalVisuals:_buildSection(parent, sectionTitle)
         return {Get=function() return selected end}
     end
 
-    -- COLOR PICKER
     function Sec:ColorPicker(label,default,callback)
         local T2=win._theme; local current=default or Color3.fromRGB(255,255,255)
         local frame=Create("Frame",{Parent=content,BackgroundTransparency=1,Size=UDim2.new(1,0,0,36),LayoutOrder=#content:GetChildren()+1,ZIndex=10,ClipsDescendants=false})
@@ -933,9 +832,6 @@ function PortalVisuals:_buildSection(parent, sectionTitle)
     return Sec
 end
 
--- ============================================================
--- DESTROY
--- ============================================================
 function PortalVisuals:Destroy()
     self:_clearStars()
     if self._inputConn then self._inputConn:Disconnect() end
@@ -947,52 +843,21 @@ function PortalVisuals:Destroy()
     table.clear(self._themeReg)
 end
 
--- ============================================================
--- SETTINGS TAB
--- ============================================================
 function PortalVisuals:AddSettingsTab()
-    local tab=self:Tab("Settings")
-    local bgSec=tab:Section("Background")
-    bgSec:TextBox("Asset ID","numeric ID or rbxassetid://...","",function(v) if v=="" then self:ClearBackground() else self:SetBackground(v) end end)
-    bgSec:Button("Clear",function() self:ClearBackground() end)
+    local tab=self:Tab("Settings", LucideAssets["settings"])
+    
     local thSec=tab:Section("Theme")
     local names={}; for n in pairs(Themes) do table.insert(names,n) end; table.sort(names)
     thSec:Dropdown("Theme",names,"Dark",function(n) self:SetTheme(n) end)
+    
+    local bgSec=tab:Section("Background")
+    bgSec:TextBox("Asset ID","numeric ID or rbxassetid://...","",function(v) if v=="" then self:ClearBackground() else self:SetBackground(v) end end)
+    bgSec:Button("Clear",function() self:ClearBackground() end)
+    
     local kSec=tab:Section("Keybind")
     kSec:Label("Current menu key: "..self._menuKey.Name)
+    kSec:Keybind("Set Menu Key", self._menuKey, function() self:Toggle() end)
     return tab
 end
 
 return PortalVisuals
-
---[[
-══════════════════════════════════════════════════════════════
-  QUICK REFERENCE  v2.1
-══════════════════════════════════════════════════════════════
-  local PV  = loadstring(game:HttpGet("URL"))()
-  local win = PV.new("Hub", { theme="Dark", menuKey=Enum.KeyCode.K })
-  local tab = win:Tab("Combat")
-  local sec = tab:Section("Aimbot")
-
-  sec:Toggle("Silent Aim", "SilentAim", false, fn)
-  sec:Slider("FOV", 1, 360, 90, fn)
-  sec:TextBox("URL", "placeholder", "", fn)
-  sec:Keybind("Toggle", Enum.KeyCode.F, fn)   -- returns {Get, SetCallback, Clear}
-  sec:Button("Fire", fn)
-  sec:Label("text")
-  sec:Dropdown("Mode", {"A","B"}, "A", fn)
-  sec:ColorPicker("Color", Color3.fromRGB(255,0,0), fn)
-
-  -- Keybind API (on the window, not the element)
-  win:Bind(Enum.KeyCode.F, "myFeatureId", function() end)
-  win:Unbind(Enum.KeyCode.F, "myFeatureId")
-  win:UnbindAll(Enum.KeyCode.F)
-
-  win:SetTheme("Cosmos")
-  win:SetBackground("12345678")
-  win:ClearBackground()
-  win:Notify("Title", "Body", 3)
-  win:Toggle()
-  win:Destroy()
-══════════════════════════════════════════════════════════════
---]]
