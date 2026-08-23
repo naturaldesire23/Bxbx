@@ -1,5 +1,5 @@
 -- ============================================================
--- PortalVisuals_Lib.lua  v3.0
+-- PortalVisuals_Lib.lua  v3.1
 -- ============================================================
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
@@ -55,7 +55,12 @@ local LucideAssets = {
     ["chevron-down"] = "rbxassetid://10709790948",
     ["check"] = "rbxassetid://10709790644",
     ["x"] = "rbxassetid://10747384394",
-    ["bell"] = "rbxassetid://10709775704"
+    ["bell"] = "rbxassetid://10709775704",
+    ["sword"] = "rbxassetid://10734975486",
+    ["eye"] = "rbxassetid://10723346959",
+    ["shield"] = "rbxassetid://10734951847",
+    ["database"] = "rbxassetid://10709818996",
+    ["power"] = "rbxassetid://10734930466"
 }
 
 local function Create(Class, Props)
