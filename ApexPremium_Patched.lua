@@ -1,9 +1,9 @@
 -- ============================================================
--- NexUI_Lib.lua  v1.3
+-- NexUI_Lib.lua  v1.4
 -- Merged from PortalVisuals_Lib + UwU Premium AP
 -- Structure: Portal Visuals | Visuals/Toasts: UwU Premium
 -- Fixed window clipping, removed unicode artifacts, 
--- fixed keybind ZIndex collision, added middle-click/escape unbind.
+-- fixed keybind input race condition, added middle-click/escape unbind.
 -- ============================================================
 
 local Players           = game:GetService("Players")
@@ -183,7 +183,7 @@ function NexUI.new(title, options)
     self._rainbowMode = false
     self._toastCount  = 0
     self._isBinding   = false
-    self._bindingCallback = nil
+    self._bindingConn = nil
 
     -- Root GUI
     self._gui = Create("ScreenGui", {
@@ -210,23 +210,7 @@ function NexUI.new(title, options)
     self:Bind(menuKey, "$$menu$$", function() self:Toggle() end)
 
     self._inputConn = UserInputService.InputBegan:Connect(function(input, gpe)
-        -- Intercept binding state
-        if self._isBinding then
-            -- Middle click or Escape clears the bind
-            if input.UserInputType == Enum.UserInputType.MouseButton3 or input.KeyCode == Enum.KeyCode.Escape then
-                local cb = self._bindingCallback
-                self._isBinding = false
-                self._bindingCallback = nil
-                if cb then cb(Enum.KeyCode.Unknown) end -- Unknown represents unbound
-            elseif input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode ~= Enum.KeyCode.Unknown then
-                local cb = self._bindingCallback
-                self._isBinding = false
-                self._bindingCallback = nil
-                if cb then cb(input.KeyCode) end
-            end
-            return
-        end
-        
+        if self._isBinding then return end -- Ignore normal inputs while binding
         if gpe then return end
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
         
@@ -242,7 +226,29 @@ end
 
 function NexUI:StartBinding(callback)
     self._isBinding = true
-    self._bindingCallback = callback
+    
+    -- Delay the listener by one frame to prevent the click that started the binding 
+    -- from immediately canceling it.
+    task.delay(0.1, function()
+        if not self._isBinding then return end
+        
+        self._bindingConn = UserInputService.InputBegan:Connect(function(input, gpe)
+            if not self._isBinding then 
+                if self._bindingConn then self._bindingConn:Disconnect() self._bindingConn = nil end
+                return 
+            end
+            
+            if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode ~= Enum.KeyCode.Unknown then
+                self._isBinding = false
+                if self._bindingConn then self._bindingConn:Disconnect() self._bindingConn = nil end
+                callback(input.KeyCode)
+            elseif input.UserInputType == Enum.UserInputType.MouseButton3 or input.KeyCode == Enum.KeyCode.Escape then
+                self._isBinding = false
+                if self._bindingConn then self._bindingConn:Disconnect() self._bindingConn = nil end
+                callback(Enum.KeyCode.Unknown) -- Unknown represents unbound
+            end
+        end)
+    end)
 end
 
 -- ─── KEYBIND ENGINE ──────────────────────────────────────────
@@ -1316,7 +1322,6 @@ function NexUI:_buildSection(parent, sectionTitle)
         -- Keybind chip (optional)
         local BIND_ID = "$$kb_" .. flagName .. "$$"
         if bindKey then
-            -- RAISED ZINDEX to 15 so it receives clicks over clickBtn
             local kChip = Create("TextButton", {
                 Parent = frame, BackgroundColor3 = T2.GlassCard,
                 BackgroundTransparency = T2.GlassCardT, BorderSizePixel = 0,
@@ -1325,7 +1330,7 @@ function NexUI:_buildSection(parent, sectionTitle)
                 Font = Enum.Font.GothamBold,
                 Text = tostring(bindKey.Name):sub(1, 6),
                 TextColor3 = T2.TextSoft, TextSize = 10,
-                AutoButtonColor = false, ZIndex = 15,
+                AutoButtonColor = false, ZIndex = 15, Active = true,
             })
             win:_reg(kChip, "BackgroundColor3", "GlassCard")
             win:_reg(kChip, "BackgroundTransparency", "GlassCardT")
@@ -1515,7 +1520,7 @@ function NexUI:_buildSection(parent, sectionTitle)
         }
     end
 
-    -- ── Keybind ── (Fixed using centralized StartBinding and middle-click unbind)
+    -- ── Keybind ── 
     function Sec:Keybind(label, defaultKey, callback)
         local T2 = win._theme
         local frame = Create("Frame", {
@@ -1542,7 +1547,7 @@ function NexUI:_buildSection(parent, sectionTitle)
             Size = UDim2.new(0, 100, 0, 28),
             Font = Enum.Font.GothamBold, Text = currentKey == Enum.KeyCode.Unknown and "None" or currentKey.Name,
             TextColor3 = T2.Text, TextSize = 12,
-            AutoButtonColor = false, ZIndex = 10,
+            AutoButtonColor = false, ZIndex = 10, Active = true,
         })
         win:_reg(keyBtn, "BackgroundColor3", "GlassCard")
         win:_reg(keyBtn, "BackgroundTransparency", "GlassCardT")
@@ -1588,7 +1593,7 @@ function NexUI:_buildSection(parent, sectionTitle)
         }
     end
 
-    -- ── Dropdown ── (Fixed missing character boxes by drawing the arrow)
+    -- ── Dropdown ── 
     function Sec:Dropdown(label, options, default, callback)
         local T2 = win._theme
         local selected = default or options[1]
@@ -1860,6 +1865,7 @@ end
 -- ─── DESTROY ──────────────────────────────────────────────────
 function NexUI:Destroy()
     if self._inputConn then self._inputConn:Disconnect() end
+    if self._bindConn then self._bindConn:Disconnect() end
     if self._gui       then self._gui:Destroy() end
     if self._wmGui     then self._wmGui:Destroy() end
     if self._toastGui  then self._toastGui:Destroy() end
