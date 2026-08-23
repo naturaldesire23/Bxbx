@@ -1,9 +1,9 @@
 -- ============================================================
--- NexUI_Lib.lua  v1.4
+-- NexUI_Lib.lua  v1.5
 -- Merged from PortalVisuals_Lib + UwU Premium AP
 -- Structure: Portal Visuals | Visuals/Toasts: UwU Premium
--- Fixed window clipping, removed unicode artifacts, 
--- fixed keybind input race condition, added middle-click/escape unbind.
+-- Fixed toggle overlay blocking keybind chip clicks. 
+-- Added middle-click to unbind, Escape to cancel.
 -- ============================================================
 
 local Players           = game:GetService("Players")
@@ -210,7 +210,7 @@ function NexUI.new(title, options)
     self:Bind(menuKey, "$$menu$$", function() self:Toggle() end)
 
     self._inputConn = UserInputService.InputBegan:Connect(function(input, gpe)
-        if self._isBinding then return end -- Ignore normal inputs while binding
+        if self._isBinding then return end
         if gpe then return end
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
         
@@ -225,29 +225,29 @@ function NexUI.new(title, options)
 end
 
 function NexUI:StartBinding(callback)
+    if self._isBinding then return end
     self._isBinding = true
-    
-    -- Delay the listener by one frame to prevent the click that started the binding 
-    -- from immediately canceling it.
-    task.delay(0.1, function()
-        if not self._isBinding then return end
+
+    self._bindingConn = UserInputService.InputBegan:Connect(function(input, gpe)
+        if not self._isBinding then 
+            if self._bindingConn then self._bindingConn:Disconnect() self._bindingConn = nil end
+            return 
+        end
         
-        self._bindingConn = UserInputService.InputBegan:Connect(function(input, gpe)
-            if not self._isBinding then 
-                if self._bindingConn then self._bindingConn:Disconnect() self._bindingConn = nil end
-                return 
-            end
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            self._isBinding = false
+            if self._bindingConn then self._bindingConn:Disconnect() self._bindingConn = nil end
             
-            if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode ~= Enum.KeyCode.Unknown then
-                self._isBinding = false
-                if self._bindingConn then self._bindingConn:Disconnect() self._bindingConn = nil end
-                callback(input.KeyCode)
-            elseif input.UserInputType == Enum.UserInputType.MouseButton3 or input.KeyCode == Enum.KeyCode.Escape then
-                self._isBinding = false
-                if self._bindingConn then self._bindingConn:Disconnect() self._bindingConn = nil end
-                callback(Enum.KeyCode.Unknown) -- Unknown represents unbound
+            if input.KeyCode == Enum.KeyCode.Escape then
+                callback(nil, true) -- Cancelled
+            else
+                callback(input.KeyCode, false) -- New key
             end
-        end)
+        elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
+            self._isBinding = false
+            if self._bindingConn then self._bindingConn:Disconnect() self._bindingConn = nil end
+            callback(Enum.KeyCode.Unknown, false) -- Unbind
+        end
     end)
 end
 
@@ -319,7 +319,6 @@ function NexUI:_buildWatermark(title)
     local wStroke = Stroke(card, T.Stroke, 1, 0.5)
     self:_reg(wStroke, "Color", "Stroke")
 
-    -- Pulse dot
     local dot = Create("Frame", {
         Parent = card, BackgroundColor3 = T.Online,
         BorderSizePixel = 0, Position = UDim2.new(0, 10, 0.5, -3),
@@ -428,7 +427,6 @@ function NexUI:Toast(title, body, duration, color)
     Corner(pill, 14)
     Stroke(pill, T.Stroke, 1, 0.4)
 
-    -- Left accent stripe
     local stripe = Create("Frame", {
         Parent = pill, BackgroundColor3 = col,
         BorderSizePixel = 0, Position = UDim2.new(0, 0, 0, 0),
@@ -436,7 +434,6 @@ function NexUI:Toast(title, body, duration, color)
     })
     Corner(stripe, 14)
 
-    -- Icon circle
     local ic = Create("Frame", {
         Parent = pill, BackgroundColor3 = col,
         BorderSizePixel = 0, Position = UDim2.new(0, 12, 0.5, -12),
@@ -471,7 +468,6 @@ function NexUI:Toast(title, body, duration, color)
     })
     self:_reg(bodyLbl, "TextColor3", "TextSoft")
 
-    -- Close button (Drawn X to prevent missing character boxes)
     local closeBtn = Create("TextButton", {
         Parent = pill, BackgroundTransparency = 1,
         Position = UDim2.new(1, -24, 0, 0), Size = UDim2.new(0, 24, 1, 0),
@@ -482,7 +478,6 @@ function NexUI:Toast(title, body, duration, color)
     self:_reg(x1, "BackgroundColor3", "TextMuted")
     self:_reg(x2, "BackgroundColor3", "TextMuted")
 
-    -- Progress bar
     local pgBg = Create("Frame", {
         Parent = pill, BackgroundColor3 = T.TrackOff,
         BackgroundTransparency = 0.5, BorderSizePixel = 0,
@@ -527,7 +522,6 @@ function NexUI:_buildAtmosphere()
     if not self._win then return end
     local T = self._theme
 
-    -- Depth layers
     local depthFar  = Create("Frame", {Parent = self._win, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, ZIndex = 2})
     local depthNear = Create("Frame", {Parent = self._win, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, ZIndex = 2})
 
@@ -575,7 +569,6 @@ function NexUI:_buildAtmosphere()
     Drift(AB2, 560, 95, 630, 165, 12)
     Drift(AB3, 400, 460, 300, 380, 10)
 
-    -- Shooting stars
     task.spawn(function()
         while self._win and self._win.Parent do
             task.wait(3 + math.random() * 5)
@@ -616,7 +609,6 @@ function NexUI:_buildAtmosphere()
         end
     end)
 
-    -- Cursor trail (relative to window)
     task.spawn(function()
         local lastT, lastP = 0, Vector2.new(0, 0)
         while self._win and self._win.Parent do
@@ -654,7 +646,6 @@ function NexUI:_buildAtmosphere()
         end
     end)
 
-    -- Twinkle particles
     task.spawn(function()
         while self._win and self._win.Parent do
             task.wait(1.8 + math.random() * 3)
@@ -709,7 +700,6 @@ function NexUI:_buildInitSequence(title)
     })
     Corner(loader, 22)
 
-    -- Hex grid background effect (rings expanding from center)
     local ringContainer = Create("Frame", {
         Parent = loader, Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1, ZIndex = 81,
@@ -733,7 +723,6 @@ function NexUI:_buildInitSequence(title)
         end)
     end
 
-    -- Center logo
     local logoHolder = Create("Frame", {
         Parent = loader, AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.38, 0),
@@ -760,7 +749,6 @@ function NexUI:_buildInitSequence(title)
     })
     Corner(logoBg, 18)
 
-    -- Spinning ring
     local spinRing = Create("Frame", {
         Parent = logoHolder, AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0),
@@ -787,7 +775,6 @@ function NexUI:_buildInitSequence(title)
         TextSize = 30, TextColor3 = Color3.new(1, 1, 1), ZIndex = 85,
     })
 
-    -- Title text
     local titleLbl = Create("TextLabel", {
         Parent = loader, AnchorPoint = Vector2.new(0.5, 0),
         Position = UDim2.new(0.5, 0, 0.55, 0),
@@ -807,7 +794,6 @@ function NexUI:_buildInitSequence(title)
         TextColor3 = T.TextMuted, TextTransparency = 1, ZIndex = 83,
     })
 
-    -- Progress bar
     local progArea = Create("Frame", {
         Parent = loader, AnchorPoint = Vector2.new(0.5, 0),
         Position = UDim2.new(0.5, 0, 0.72, 0),
@@ -847,7 +833,6 @@ function NexUI:_buildInitSequence(title)
         Font = Enum.Font.Gotham, TextSize = 10, TextColor3 = T.TextMuted,
     })
 
-    -- Skip on click
     local loaderDone = false
     local function finishLoader()
         if loaderDone then return end; loaderDone = true
@@ -858,7 +843,6 @@ function NexUI:_buildInitSequence(title)
             Tween(loader, {BackgroundTransparency = 1}, 0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
             task.delay(0.5, function()
                 if loader and loader.Parent then loader:Destroy() end
-                -- Reveal main window
                 self._win.Size = UDim2.new(0, self._W, 0, 0)
                 self._win.Visible = true
                 Tween(self._win, {Size = UDim2.new(0, self._W, 0, self._H)}, 1.1, Enum.EasingStyle.Quint)
@@ -874,7 +858,6 @@ function NexUI:_buildInitSequence(title)
         if i.UserInputType == Enum.UserInputType.MouseButton1 then finishLoader() end
     end)
 
-    -- Init animation sequence
     task.spawn(function()
         task.wait(0.1)
         Tween(logoScale, TweenInfo.new(0.65, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1})
@@ -929,7 +912,6 @@ function NexUI:_buildMainWindow(title, subtitle)
     self:_reg(win, "BackgroundTransparency", "GlassBgT")
     self._win = win
 
-    -- Glass shine
     local shine = Create("Frame", {
         Parent = win, BackgroundColor3 = T.Shine,
         BackgroundTransparency = 0.93, BorderSizePixel = 0,
@@ -945,7 +927,6 @@ function NexUI:_buildMainWindow(title, subtitle)
         }),
     })
 
-    -- Left sidebar
     local left = Create("Frame", {
         Parent = win, BackgroundColor3 = T.GlassLeft,
         BackgroundTransparency = T.GlassLeftT, BorderSizePixel = 0,
@@ -979,7 +960,6 @@ function NexUI:_buildMainWindow(title, subtitle)
     })
     self:_reg(subLbl, "TextColor3", "TextMuted")
 
-    -- Top accent line under header
     local accentLine = Create("Frame", {
         Parent = left, BackgroundColor3 = T.Accent,
         BorderSizePixel = 0,
@@ -1001,7 +981,6 @@ function NexUI:_buildMainWindow(title, subtitle)
 
     self:_buildProfile(left)
 
-    -- Content area
     local contentArea = Create("Frame", {
         Parent = win, BackgroundTransparency = 1,
         Position = UDim2.new(0, 228, 0, 0),
@@ -1148,7 +1127,6 @@ function NexUI:Tab(name, iconId)
         self:_reg(icon, "ImageColor3", "TextSoft")
     end
 
-    -- Active indicator bar
     local ind = Create("Frame", {
         Parent = btn, BackgroundColor3 = T.Accent,
         BorderSizePixel = 0,
@@ -1254,7 +1232,6 @@ function NexUI:_buildSection(parent, sectionTitle)
     })
     self:_reg(headerLbl, "TextColor3", "Text")
 
-    -- Divider
     local div = Create("Frame", {
         Parent = section, BackgroundColor3 = T.Stroke,
         BackgroundTransparency = 0.65, BorderSizePixel = 0,
@@ -1319,7 +1296,6 @@ function NexUI:_buildSection(parent, sectionTitle)
             if callback then task.spawn(callback, v) end
         end
 
-        -- Keybind chip (optional)
         local BIND_ID = "$$kb_" .. flagName .. "$$"
         if bindKey then
             local kChip = Create("TextButton", {
@@ -1328,7 +1304,7 @@ function NexUI:_buildSection(parent, sectionTitle)
                 Position = UDim2.new(1, -106, 0.5, -12),
                 Size = UDim2.new(0, 40, 0, 24),
                 Font = Enum.Font.GothamBold,
-                Text = tostring(bindKey.Name):sub(1, 6),
+                Text = (bindKey == Enum.KeyCode.Unknown) and "None" or tostring(bindKey.Name):sub(1, 6),
                 TextColor3 = T2.TextSoft, TextSize = 10,
                 AutoButtonColor = false, ZIndex = 15, Active = true,
             })
@@ -1340,18 +1316,26 @@ function NexUI:_buildSection(parent, sectionTitle)
             
             local function startListening()
                 if waiting then return end; waiting = true
+                local oldKey = bindKey
                 kChip.Text = "..."
-                win:StartBinding(function(newKey)
-                    win:Unbind(bindKey, BIND_ID)
-                    bindKey = newKey
-                    kChip.Text = (newKey == Enum.KeyCode.Unknown) and "None" or tostring(bindKey.Name):sub(1, 6)
-                    if newKey ~= Enum.KeyCode.Unknown then
-                        win:Bind(bindKey, BIND_ID, function()
-                            enabled = not enabled
-                            win._flags[flagName] = enabled
-                            setEnabled(enabled)
-                        end)
+                Tween(kChip, {BackgroundTransparency = 0.1}, 0.2)
+                
+                win:StartBinding(function(newKey, cancelled)
+                    if cancelled then
+                        bindKey = oldKey
+                    else
+                        win:Unbind(bindKey, BIND_ID)
+                        bindKey = newKey
+                        if newKey ~= Enum.KeyCode.Unknown then
+                            win:Bind(bindKey, BIND_ID, function()
+                                enabled = not enabled
+                                win._flags[flagName] = enabled
+                                setEnabled(enabled)
+                            end)
+                        end
                     end
+                    kChip.Text = (bindKey == Enum.KeyCode.Unknown) and "None" or tostring(bindKey.Name):sub(1, 6)
+                    Tween(kChip, {BackgroundTransparency = win._theme.GlassCardT}, 0.2)
                     waiting = false
                 end)
             end
@@ -1375,7 +1359,9 @@ function NexUI:_buildSection(parent, sectionTitle)
         local debounce = false
         local clickBtn = Create("TextButton", {
             Parent = frame, BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 1, 0), Text = "", ZIndex = 12,
+            -- FIX: Leave a 110px gap on the right so it doesn't cover the kChip
+            Size = UDim2.new(1, bindKey and -110 or 0, 1, 0), 
+            Text = "", ZIndex = 12,
             AutoButtonColor = false,
         })
         clickBtn.MouseButton1Click:Connect(function()
@@ -1545,7 +1531,7 @@ function NexUI:_buildSection(parent, sectionTitle)
             BackgroundTransparency = T2.GlassCardT, BorderSizePixel = 0,
             Position = UDim2.new(1, -112, 0.5, -14),
             Size = UDim2.new(0, 100, 0, 28),
-            Font = Enum.Font.GothamBold, Text = currentKey == Enum.KeyCode.Unknown and "None" or currentKey.Name,
+            Font = Enum.Font.GothamBold, Text = (currentKey == Enum.KeyCode.Unknown) and "None" or currentKey.Name,
             TextColor3 = T2.Text, TextSize = 12,
             AutoButtonColor = false, ZIndex = 10, Active = true,
         })
@@ -1559,17 +1545,22 @@ function NexUI:_buildSection(parent, sectionTitle)
         local waiting = false
         local function startListening()
             if waiting then return end; waiting = true
+            local oldKey = currentKey
             keyBtn.Text = "Press key..."
             Tween(keyBtn, {BackgroundTransparency = 0.1}, 0.2)
             Tween(kStroke, {Transparency = 0}, 0.2)
             
-            win:StartBinding(function(newKey)
-                win:Unbind(currentKey, BIND_ID)
-                currentKey = newKey
-                keyBtn.Text = (newKey == Enum.KeyCode.Unknown) and "None" or currentKey.Name
-                if newKey ~= Enum.KeyCode.Unknown and callback then 
-                    win:Bind(currentKey, BIND_ID, callback)
+            win:StartBinding(function(newKey, cancelled)
+                if cancelled then
+                    currentKey = oldKey
+                else
+                    win:Unbind(currentKey, BIND_ID)
+                    currentKey = newKey
+                    if newKey ~= Enum.KeyCode.Unknown and callback then 
+                        win:Bind(currentKey, BIND_ID, callback)
+                    end
                 end
+                keyBtn.Text = (currentKey == Enum.KeyCode.Unknown) and "None" or currentKey.Name
                 Tween(keyBtn, {BackgroundTransparency = T2.GlassCardT}, 0.2)
                 Tween(kStroke, {Transparency = 0.5}, 0.2)
                 waiting = false
