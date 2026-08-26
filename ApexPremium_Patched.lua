@@ -1255,34 +1255,43 @@ function Library:create_ui()
                 TextLabel.Text = '...'
                 Keybind.BackgroundColor3 = Color3.fromRGB(45, 45, 51)
 
+                local function cancel_choose()
+                    Library._choosing_keybind = false
+                    Keybind.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+                    if Library._config._keybinds[settings.flag] then
+                        TextLabel.Text = string.gsub(tostring(Library._config._keybinds[settings.flag]), 'Enum.KeyCode.', '')
+                    else
+                        TextLabel.Text = 'None'
+                    end
+                    if Connections['keybind_choose_start'] then
+                        Connections['keybind_choose_start']:Disconnect()
+                        Connections['keybind_choose_start'] = nil
+                    end
+                end
+
                 Connections['keybind_choose_start'] = UserInputService.InputBegan:Connect(function(input: InputObject, process: boolean)
                     if process then return end
-                    if input == Enum.UserInputState or input == Enum.UserInputType then return end
+                    
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        local mousePos = UserInputService:GetMouseLocation()
+                        local framePos = Keybind.AbsolutePosition
+                        local frameSize = Keybind.AbsoluteSize
+                        if mousePos.X < framePos.X or mousePos.X > framePos.X + frameSize.X or mousePos.Y < framePos.Y or mousePos.Y > framePos.Y + frameSize.Y then
+                            cancel_choose()
+                            return
+                        end
+                    end
+                    
                     if input.KeyCode == Enum.KeyCode.Unknown then return end
 
                     if input.KeyCode == Enum.KeyCode.Backspace then
                         ModuleManager:scale_keybind(true)
-
                         Library._config._keybinds[settings.flag] = nil
-
                         TextLabel.Text = 'None'
-
-                        if Connections[settings.flag..'_keybind'] then
-                            Connections[settings.flag..'_keybind']:Disconnect()
-                            Connections[settings.flag..'_keybind'] = nil
-                        end
-
-                        Connections['keybind_choose_start']:Disconnect()
-                        Connections['keybind_choose_start'] = nil
-
-                        Library._choosing_keybind = false
-                        Keybind.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+                        cancel_choose()
                         Config:save(game.GameId, Library._config)
                         return
                     end
-
-                    Connections['keybind_choose_start']:Disconnect()
-                    Connections['keybind_choose_start'] = nil
 
                     Library._config._keybinds[settings.flag] = tostring(input.KeyCode)
 
@@ -1294,10 +1303,10 @@ function Library:create_ui()
                     ModuleManager:connect_keybind()
                     ModuleManager:scale_keybind()
 
-                    Library._choosing_keybind = false
-
                     local keybind_string = string.gsub(tostring(Library._config._keybinds[settings.flag]), 'Enum.KeyCode.', '')
                     TextLabel.Text = keybind_string
+                    
+                    cancel_choose()
                     Config:save(game.GameId, Library._config)
                 end)
             end)
@@ -1445,12 +1454,36 @@ function Library:create_ui()
                     if Library._choosing_keybind then return end
                     Library._choosing_keybind = true
                     KeybindLabel.Text = "..."
-                    local chooseConnection
-                    chooseConnection = UserInputService.InputBegan:Connect(function(input, processed)
+
+                    local function cancel_choose()
+                        Library._choosing_keybind = false
+                        if Library._config._keybinds[settings.flag] then
+                            KeybindLabel.Text = string.gsub(tostring(Library._config._keybinds[settings.flag]), "Enum.KeyCode.", "")
+                        else
+                            KeybindLabel.Text = "..."
+                        end
+                        if Connections['checkbox_keybind_choose'] then
+                            Connections['checkbox_keybind_choose']:Disconnect()
+                            Connections['checkbox_keybind_choose'] = nil
+                        end
+                    end
+
+                    Connections['checkbox_keybind_choose'] = UserInputService.InputBegan:Connect(function(input, processed)
                         if processed then return end
-                        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+                        
+                        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                            local mousePos = UserInputService:GetMouseLocation()
+                            local framePos = KeybindBox.AbsolutePosition
+                            local frameSize = KeybindBox.AbsoluteSize
+                            if mousePos.X < framePos.X or mousePos.X > framePos.X + frameSize.X or mousePos.Y < framePos.Y or mousePos.Y > framePos.Y + frameSize.Y then
+                                cancel_choose()
+                                return
+                            end
+                        end
+                        
+                        if input.UserInputType ~= Enum.UserInputType.Keyboard and input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
                         if input.KeyCode == Enum.KeyCode.Unknown then return end
-                        chooseConnection:Disconnect()
+                        
                         if input.KeyCode == Enum.KeyCode.Backspace then
                             Library._config._keybinds[settings.flag] = nil
                             KeybindLabel.Text = "..."
@@ -1458,7 +1491,7 @@ function Library:create_ui()
                             Library._config._keybinds[settings.flag] = tostring(input.KeyCode)
                             KeybindLabel.Text = string.gsub(tostring(input.KeyCode), "Enum.KeyCode.", "")
                         end
-                        Library._choosing_keybind = false
+                        cancel_choose()
                     end)
                 end)
 
@@ -1580,12 +1613,35 @@ function Library:create_ui()
                     KeybindBox.Size = UDim2.fromOffset(38, 16)
                     KeybindBox.BackgroundColor3 = Color3.fromRGB(45, 45, 51)
 
-                    local conn
-                    conn = UserInputService.InputBegan:Connect(function(input, process)
+                    local function cancel_choose()
+                        Library._choosing_keybind = false
+                        KeybindBox.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+                        if Library._config._keybinds[settings.flag] then
+                            KeybindLabel.Text = string.gsub(tostring(Library._config._keybinds[settings.flag]), 'Enum.KeyCode.', '')
+                        else
+                            KeybindLabel.Text = '...'
+                        end
+                        resize_keybind_row()
+                        if Connections['keybind_row_choose'] then
+                            Connections['keybind_row_choose']:Disconnect()
+                            Connections['keybind_row_choose'] = nil
+                        end
+                    end
+
+                    Connections['keybind_row_choose'] = UserInputService.InputBegan:Connect(function(input, process)
                         if process then return end
+                        
+                        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                            local mousePos = UserInputService:GetMouseLocation()
+                            local framePos = KeybindBox.AbsolutePosition
+                            local frameSize = KeybindBox.AbsoluteSize
+                            if mousePos.X < framePos.X or mousePos.X > framePos.X + frameSize.X or mousePos.Y < framePos.Y or mousePos.Y > framePos.Y + frameSize.Y then
+                                cancel_choose()
+                                return
+                            end
+                        end
+
                         if input.KeyCode == Enum.KeyCode.Unknown then return end
-                        conn:Disconnect()
-                        conn = nil
 
                         if input.KeyCode == Enum.KeyCode.Backspace then
                             Library._config._keybinds[settings.flag] = nil
@@ -1595,9 +1651,7 @@ function Library:create_ui()
                             KeybindLabel.Text = string.gsub(tostring(input.KeyCode), 'Enum.KeyCode.', '')
                         end
 
-                        resize_keybind_row()
-                        Library._choosing_keybind = false
-                        KeybindBox.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+                        cancel_choose()
                     end)
                 end)
             end
