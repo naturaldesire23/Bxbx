@@ -1559,50 +1559,6 @@ function Library:create_tab(title, icon)
                 }):Play()
             end
 
-            if #settings.options > 0 then
-                DropdownManager._size = 3
-                for index, value in settings.options do
-                    local Option = Instance.new('TextButton')
-                    Option.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-                    Option.Active = false
-                    Option.TextTransparency = 0.6
-                    Option.AnchorPoint = Vector2.new(0, 0.5)
-                    Option.TextSize = 10
-                    Option.Size = UDim2.new(0, 186, 0, 16)
-                    Option.TextColor3 = Theme.Text
-                    Option.Text = (typeof(value) == "string" and value) or value.Name
-                    Option.AutoButtonColor = false
-                    Option.Name = 'Option'
-                    Option.BackgroundTransparency = 1
-                    Option.TextXAlignment = Enum.TextXAlignment.Left
-                    Option.Selectable = false
-                    Option.Position = UDim2.new(0.050, 0, 0.342, 0)
-                    Option.BorderSizePixel = 0
-                    Option.Parent = OptionsList
-                    table.insert(Library._elements, {obj = Option, prop = "TextColor3", tKey = "Text"})
-
-                    Option.MouseButton1Click:Connect(function()
-                        if not Library._config._flags[settings.flag] then
-                            Library._config._flags[settings.flag] = {}
-                        end
-
-                        if settings.multi_dropdown then
-                            if table.find(Library._config._flags[settings.flag], value) then
-                                Library:remove_table_value(Library._config._flags[settings.flag], value)
-                            else
-                                table.insert(Library._config._flags[settings.flag], value)
-                            end
-                        end
-
-                        DropdownManager:update(value)
-                    end)
-
-                    if settings.maximum_options and index > settings.maximum_options then continue end
-                    DropdownManager._size = DropdownManager._size + 16
-                    OptionsList.Size = UDim2.fromOffset(207, DropdownManager._size)
-                end
-            end
-
             function DropdownManager:refresh(new_options)
                 local old_size = self._size
                 for _, child in ipairs(OptionsList:GetChildren()) do
@@ -1654,6 +1610,50 @@ function Library:create_tab(title, icon)
                     Module.Options.Size = UDim2.fromOffset(241, ModuleManager._size + ModuleManager._multiplier)
                     Dropdown.Size = UDim2.fromOffset(207, 39 + self._size)
                     Box.Size = UDim2.fromOffset(207, 22 + self._size)
+                end
+            end
+
+            if #settings.options > 0 then
+                DropdownManager._size = 3
+                for index, value in settings.options do
+                    local Option = Instance.new('TextButton')
+                    Option.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+                    Option.Active = false
+                    Option.TextTransparency = 0.6
+                    Option.AnchorPoint = Vector2.new(0, 0.5)
+                    Option.TextSize = 10
+                    Option.Size = UDim2.new(0, 186, 0, 16)
+                    Option.TextColor3 = Theme.Text
+                    Option.Text = (typeof(value) == "string" and value) or value.Name
+                    Option.AutoButtonColor = false
+                    Option.Name = 'Option'
+                    Option.BackgroundTransparency = 1
+                    Option.TextXAlignment = Enum.TextXAlignment.Left
+                    Option.Selectable = false
+                    Option.Position = UDim2.new(0.050, 0, 0.342, 0)
+                    Option.BorderSizePixel = 0
+                    Option.Parent = OptionsList
+                    table.insert(Library._elements, {obj = Option, prop = "TextColor3", tKey = "Text"})
+
+                    Option.MouseButton1Click:Connect(function()
+                        if not Library._config._flags[settings.flag] then
+                            Library._config._flags[settings.flag] = {}
+                        end
+
+                        if settings.multi_dropdown then
+                            if table.find(Library._config._flags[settings.flag], value) then
+                                Library:remove_table_value(Library._config._flags[settings.flag], value)
+                            else
+                                table.insert(Library._config._flags[settings.flag], value)
+                            end
+                        end
+
+                        DropdownManager:update(value)
+                    end)
+
+                    if settings.maximum_options and index > settings.maximum_options then continue end
+                    DropdownManager._size = DropdownManager._size + 16
+                    OptionsList.Size = UDim2.fromOffset(207, DropdownManager._size)
                 end
             end
 
@@ -1722,6 +1722,342 @@ function Library:create_tab(title, icon)
             end
             
             return true
+        end
+
+        function ModuleManager:create_paragraph(settings)
+            LayoutOrderModule = LayoutOrderModule + 1
+            local ParagraphManager = {}
+            
+            if self._size == 0 then self._size = 11 end
+            self._size = self._size + (settings.customScale or 70)
+            
+            if ModuleManager._state then
+                Module.Size = UDim2.fromOffset(241, 93 + self._size)
+            end
+            Options.Size = UDim2.fromOffset(241, self._size)
+            
+            local Paragraph = Instance.new('Frame')
+            Paragraph.BackgroundColor3 = Theme.Control
+            Paragraph.BackgroundTransparency = 0.1
+            Paragraph.Size = UDim2.new(0, 207, 0, 30)
+            Paragraph.BorderSizePixel = 0
+            Paragraph.Name = "Paragraph"
+            Paragraph.AutomaticSize = Enum.AutomaticSize.Y
+            Paragraph.Parent = Options
+            Paragraph.LayoutOrder = LayoutOrderModule
+            table.insert(Library._elements, {obj = Paragraph, prop = "BackgroundColor3", tKey = "Control"})
+            
+            local UICorner = Instance.new('UICorner')
+            UICorner.CornerRadius = UDim.new(0, 4)
+            UICorner.Parent = Paragraph
+            
+            local Title = Instance.new('TextLabel')
+            Title.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+            Title.TextColor3 = Theme.Text
+            Title.Text = settings.title or "Title"
+            Title.Size = UDim2.new(1, -10, 0, 20)
+            Title.Position = UDim2.new(0, 5, 0, 5)
+            Title.BackgroundTransparency = 1
+            Title.TextXAlignment = Enum.TextXAlignment.Left
+            Title.TextYAlignment = Enum.TextYAlignment.Center
+            Title.TextSize = 12
+            Title.AutomaticSize = Enum.AutomaticSize.XY
+            Title.Parent = Paragraph
+            table.insert(Library._elements, {obj = Title, prop = "TextColor3", tKey = "Text"})
+            
+            local Body = Instance.new('TextLabel')
+            Body.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+            Body.TextColor3 = Theme.TextDim
+            
+            if not settings.rich then
+                Body.Text = settings.text or "Paragraph"
+            else
+                Body.RichText = true
+                Body.Text = settings.richtext or "<font color='rgb(255,0,0)'>Paragraph</font> user"
+            end
+            
+            Body.Size = UDim2.new(1, -10, 0, 20)
+            Body.Position = UDim2.new(0, 5, 0, 30)
+            Body.BackgroundTransparency = 1
+            Body.TextXAlignment = Enum.TextXAlignment.Left
+            Body.TextYAlignment = Enum.TextYAlignment.Top
+            Body.TextSize = 11
+            Body.TextWrapped = true
+            Body.AutomaticSize = Enum.AutomaticSize.XY
+            Body.Parent = Paragraph
+            table.insert(Library._elements, {obj = Body, prop = "TextColor3", tKey = "TextDim"})
+            
+            Paragraph.MouseEnter:Connect(function()
+                TweenService:Create(Paragraph, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    BackgroundColor3 = Theme.ControlHover
+                }):Play()
+            end)
+            
+            Paragraph.MouseLeave:Connect(function()
+                TweenService:Create(Paragraph, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    BackgroundColor3 = Theme.Control
+                }):Play()
+            end)
+
+            return ParagraphManager
+        end
+
+        function ModuleManager:create_text(settings)
+            LayoutOrderModule = LayoutOrderModule + 1
+            local TextManager = {}
+        
+            if self._size == 0 then self._size = 11 end
+            self._size = self._size + (settings.customScale or 50)
+        
+            if ModuleManager._state then
+                Module.Size = UDim2.fromOffset(241, 93 + self._size)
+            end
+            Options.Size = UDim2.fromOffset(241, self._size)
+        
+            local TextFrame = Instance.new('Frame')
+            TextFrame.BackgroundColor3 = Theme.Control
+            TextFrame.BackgroundTransparency = 0.1
+            TextFrame.Size = UDim2.new(0, 207, 0, settings.CustomYSize or 30)
+            TextFrame.BorderSizePixel = 0
+            TextFrame.Name = "Text"
+            TextFrame.AutomaticSize = Enum.AutomaticSize.Y
+            TextFrame.Parent = Options
+            TextFrame.LayoutOrder = LayoutOrderModule
+            table.insert(Library._elements, {obj = TextFrame, prop = "BackgroundColor3", tKey = "Control"})
+        
+            local UICorner = Instance.new('UICorner')
+            UICorner.CornerRadius = UDim.new(0, 4)
+            UICorner.Parent = TextFrame
+        
+            local Body = Instance.new('TextLabel')
+            Body.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+            Body.TextColor3 = Theme.TextDim
+        
+            if not settings.rich then
+                Body.Text = settings.text or "Text"
+            else
+                Body.RichText = true
+                Body.Text = settings.richtext or "<font color='rgb(255,0,0)'>Text</font> user"
+            end
+        
+            Body.Size = UDim2.new(1, -10, 1, -10)
+            Body.Position = UDim2.new(0, 5, 0, 5)
+            Body.BackgroundTransparency = 1
+            Body.TextXAlignment = Enum.TextXAlignment.Left
+            Body.TextYAlignment = Enum.TextYAlignment.Top
+            Body.TextSize = 10
+            Body.TextWrapped = true
+            Body.AutomaticSize = Enum.AutomaticSize.XY
+            Body.Parent = TextFrame
+            table.insert(Library._elements, {obj = Body, prop = "TextColor3", tKey = "TextDim"})
+        
+            TextFrame.MouseEnter:Connect(function()
+                TweenService:Create(TextFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    BackgroundColor3 = Theme.ControlHover
+                }):Play()
+            end)
+        
+            TextFrame.MouseLeave:Connect(function()
+                TweenService:Create(TextFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    BackgroundColor3 = Theme.Control
+                }):Play()
+            end)
+        
+            function TextManager:Set(new_settings)
+                if not new_settings.rich then
+                    Body.Text = new_settings.text or "Text"
+                else
+                    Body.RichText = true
+                    Body.Text = new_settings.richtext or "<font color='rgb(255,0,0)'>Text</font> user"
+                end
+            end
+        
+            return TextManager
+        end
+
+        function ModuleManager:create_feature(settings)
+            LayoutOrderModule = LayoutOrderModule + 1
+            local FeatureManager = {}
+            
+            if self._size == 0 then self._size = 11 end
+            self._size = self._size + 20
+            
+            if ModuleManager._state then
+                Module.Size = UDim2.fromOffset(241, 93 + self._size)
+            end
+            Options.Size = UDim2.fromOffset(241, self._size)
+            
+            local FeatureContainer = Instance.new("Frame")
+            FeatureContainer.Size = UDim2.new(0, 207, 0, 16)
+            FeatureContainer.BackgroundTransparency = 1
+            FeatureContainer.Parent = Options
+            FeatureContainer.LayoutOrder = LayoutOrderModule
+            
+            local UIListLayout = Instance.new("UIListLayout")
+            UIListLayout.FillDirection = Enum.FillDirection.Horizontal
+            UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            UIListLayout.Parent = FeatureContainer
+            
+            local FeatureButton = Instance.new("TextButton")
+            FeatureButton.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+            FeatureButton.TextSize = 11
+            FeatureButton.Size = UDim2.new(1, -35, 0, 16)
+            FeatureButton.BackgroundColor3 = Theme.Control
+            FeatureButton.TextColor3 = Theme.Text
+            FeatureButton.Text = "    " .. (settings.title or "Feature")
+            FeatureButton.AutoButtonColor = false
+            FeatureButton.TextXAlignment = Enum.TextXAlignment.Left
+            FeatureButton.TextTransparency = 0.2
+            FeatureButton.Parent = FeatureContainer
+            table.insert(Library._elements, {obj = FeatureButton, prop = "BackgroundColor3", tKey = "Control"})
+            table.insert(Library._elements, {obj = FeatureButton, prop = "TextColor3", tKey = "Text"})
+
+            local FeatureCorner = Instance.new("UICorner")
+            FeatureCorner.CornerRadius = UDim.new(0, 4)
+            FeatureCorner.Parent = FeatureButton
+            
+            local RightContainer = Instance.new("Frame")
+            RightContainer.Size = UDim2.new(0, 45, 0, 16)
+            RightContainer.BackgroundTransparency = 1
+            RightContainer.Parent = FeatureContainer
+            
+            local RightLayout = Instance.new("UIListLayout")
+            RightLayout.Padding = UDim.new(0.1, 0)
+            RightLayout.FillDirection = Enum.FillDirection.Horizontal
+            RightLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+            RightLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            RightLayout.Parent = RightContainer
+            
+            local KeybindBox = Instance.new("TextLabel")
+            KeybindBox.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+            KeybindBox.Size = UDim2.new(0, 15, 0, 15)
+            KeybindBox.BackgroundColor3 = Theme.Accent
+            KeybindBox.TextColor3 = Theme.Text
+            KeybindBox.TextSize = 11
+            KeybindBox.BackgroundTransparency = 1
+            KeybindBox.LayoutOrder = 2
+            KeybindBox.Parent = RightContainer
+            table.insert(Library._elements, {obj = KeybindBox, prop = "BackgroundColor3", tKey = "Accent"})
+            table.insert(Library._elements, {obj = KeybindBox, prop = "TextColor3", tKey = "Text"})
+
+            local KeybindButton = Instance.new("TextButton")
+            KeybindButton.Size = UDim2.new(1, 0, 1, 0)
+            KeybindButton.BackgroundTransparency = 1
+            KeybindButton.TextTransparency = 1
+            KeybindButton.Parent = KeybindBox
+
+            local CheckboxCorner = Instance.new("UICorner")
+            CheckboxCorner.CornerRadius = UDim.new(0, 3)
+            CheckboxCorner.Parent = KeybindBox
+
+            local UIStroke = Instance.new("UIStroke")
+            UIStroke.Color = Theme.Accent
+            UIStroke.Thickness = 1
+            UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            UIStroke.Parent = KeybindBox
+            table.insert(Library._elements, {obj = UIStroke, prop = "Color", tKey = "Accent"})
+            
+            local checked = false
+            if not Library._config._flags[settings.flag] then
+                Library._config._flags[settings.flag] = {
+                    checked = false,
+                    BIND = settings.default or "Unknown"
+                }
+            end
+            
+            checked = Library._config._flags[settings.flag].checked
+            KeybindBox.Text = Library._config._flags[settings.flag].BIND
+            
+            if KeybindBox.Text == "Unknown" then
+                KeybindBox.Text = "..."
+            end
+            
+            local UseF_Var = nil
+            
+            if not settings.disablecheck then
+                local Checkbox = Instance.new("TextButton")
+                Checkbox.Size = UDim2.new(0, 15, 0, 15)
+                Checkbox.BackgroundColor3 = checked and Theme.Accent or Theme.Control
+                Checkbox.Text = ""
+                Checkbox.Parent = RightContainer
+                Checkbox.LayoutOrder = 1
+                table.insert(Library._elements, {obj = Checkbox, prop = "BackgroundColor3", tKey = "Accent"})
+                table.insert(Library._elements, {obj = Checkbox, prop = "BackgroundColor3", tKey = "Control"})
+
+                local CheckboxCorner = Instance.new("UICorner")
+                CheckboxCorner.CornerRadius = UDim.new(0, 3)
+                CheckboxCorner.Parent = Checkbox
+                
+                local CheckboxStroke = Instance.new("UIStroke")
+                CheckboxStroke.Color = Theme.Accent
+                CheckboxStroke.Thickness = 1
+                CheckboxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                CheckboxStroke.Parent = Checkbox
+                table.insert(Library._elements, {obj = CheckboxStroke, prop = "Color", tKey = "Accent"})
+                
+                local function toggleState()
+                    checked = not checked
+                    Checkbox.BackgroundColor3 = checked and Theme.Accent or Theme.Control
+                    Library._config._flags[settings.flag].checked = checked
+                    Config:save(game.GameId, Library._config)
+                    if settings.callback then
+                        settings.callback(checked)
+                    end
+                end
+
+                UseF_Var = toggleState
+                Checkbox.MouseButton1Click:Connect(toggleState)
+            else
+                UseF_Var = function()
+                    if settings.button_callback then settings.button_callback() end
+                end
+            end
+            
+            KeybindButton.MouseButton1Click:Connect(function()
+                KeybindBox.Text = "..."
+                local inputConnection
+                inputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+                    if gameProcessed then return end
+                    if input.UserInputType == Enum.UserInputType.Keyboard then
+                        local newKey = input.KeyCode.Name
+                        Library._config._flags[settings.flag].BIND = newKey
+                        if newKey ~= "Unknown" then
+                            KeybindBox.Text = newKey
+                        end
+                        Config:save(game.GameId, Library._config)
+                        inputConnection:Disconnect()
+                    elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
+                        Library._config._flags[settings.flag].BIND = "Unknown"
+                        KeybindBox.Text = "..."
+                        Config:save(game.GameId, Library._config)
+                        inputConnection:Disconnect()
+                    end
+                end)
+                Connections["keybind_input_" .. settings.flag] = inputConnection
+            end)
+            
+            local keyPressConnection
+            keyPressConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+                if gameProcessed then return end
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    if input.KeyCode.Name == Library._config._flags[settings.flag].BIND then
+                        UseF_Var()
+                    end
+                end
+            end)
+            Connections["keybind_press_" .. settings.flag] = keyPressConnection
+            
+            FeatureButton.MouseButton1Click:Connect(function()
+                if settings.button_callback then
+                    settings.button_callback()
+                end
+            end)
+
+            if not settings.disablecheck then
+                settings.callback(checked)
+            end
+            
+            return FeatureManager
         end
 
         return ModuleManager
