@@ -1594,7 +1594,7 @@ function Library:create_ui(config: table)
                 UIPadding.PaddingLeft = UDim.new(0, 10)
                 UIPadding.Parent = OptionsList
 
-                function DropdownManager:update(option: string)
+                function DropdownManager:update(option)
                     if settings.multi_dropdown then
                         if not Library._config._flags[settings.flag] then
                             Library._config._flags[settings.flag] = {}
@@ -1616,7 +1616,7 @@ function Library:create_ui(config: table)
                             end
                         end
                         local CurrentTextGet = convertStringToTable(CurrentOption.Text)
-                        local optionSkibidi = (typeof(option) == "string" and option) or option.Name
+                        local optionSkibidi = (typeof(option) == "string" and option) or (typeof(option) == "Instance" and option.Name) or tostring(option)
                         for i, v in pairs(CurrentTextGet) do
                             if v == optionSkibidi then
                                 table.remove(CurrentTextGet, i)
@@ -1644,10 +1644,11 @@ function Library:create_ui(config: table)
                         CurrentOption.Text = table.concat(selected, ", ")
                         Library._config._flags[settings.flag] = convertStringToTable(CurrentOption.Text)
                     else
-                        CurrentOption.Text = (typeof(option) == "string" and option) or option.Name
+                        local optionText = (typeof(option) == "string" and option) or (typeof(option) == "Instance" and option.Name) or (option ~= nil and tostring(option) or "")
+                        CurrentOption.Text = optionText
                         for _, object in OptionsList:GetChildren() do
                             if object.Name == "Option" then
-                                object.TextTransparency = object.Text == CurrentOption.Text and 0.2 or 0.6
+                                object.TextTransparency = object.Text == optionText and 0.2 or 0.6
                             end
                         end
                         Library._config._flags[settings.flag] = option
@@ -1692,7 +1693,8 @@ function Library:create_ui(config: table)
                         Option.TextSize = 10
                         Option.Size = UDim2.new(0, 186, 0, 16)
                         Option.TextColor3 = Theme.Text
-                        Option.Text = (typeof(value) == "string" and value) or value.Name
+                        local vText = (typeof(value) == "string" and value) or (typeof(value) == "Instance" and value.Name) or tostring(value)
+                        Option.Text = vText
                         Option.AutoButtonColor = false
                         Option.Name = 'Option'
                         Option.BackgroundTransparency = 1
@@ -1722,10 +1724,65 @@ function Library:create_ui(config: table)
                     end
                 end
 
+                function DropdownManager:refresh(new_options)
+                    local old_size = self._size
+                    for _, child in ipairs(OptionsList:GetChildren()) do
+                        if child.Name == "Option" then child:Destroy() end
+                    end
+                    self._size = 3
+                    for index, value in new_options do
+                        local Option = Instance.new('TextButton')
+                        Option.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+                        Option.Active = false
+                        Option.TextTransparency = 0.6
+                        Option.AnchorPoint = Vector2.new(0, 0.5)
+                        Option.TextSize = 10
+                        Option.Size = UDim2.new(0, 186, 0, 16)
+                        Option.TextColor3 = Theme.Text
+                        local vText = (typeof(value) == "string" and value) or (typeof(value) == "Instance" and value.Name) or tostring(value)
+                        Option.Text = vText
+                        Option.AutoButtonColor = false
+                        Option.Name = 'Option'
+                        Option.BackgroundTransparency = 1
+                        Option.TextXAlignment = Enum.TextXAlignment.Left
+                        Option.Selectable = false
+                        Option.Position = UDim2.new(0.050, 0, 0.342, 0)
+                        Option.BorderSizePixel = 0
+                        Option.Parent = OptionsList
+                        table.insert(Library._elements, {obj = Option, prop = "TextColor3", tKey = "Text"})
+
+                        Option.MouseButton1Click:Connect(function()
+                            if not Library._config._flags[settings.flag] then
+                                Library._config._flags[settings.flag] = {}
+                            end
+                            if settings.multi_dropdown then
+                                if table.find(Library._config._flags[settings.flag], value) then
+                                    Library:remove_table_value(Library._config._flags[settings.flag], value)
+                                else
+                                    table.insert(Library._config._flags[settings.flag], value)
+                                end
+                            end
+                            DropdownManager:update(value)
+                        end)
+
+                        if settings.maximum_options and index > settings.maximum_options then continue end
+                        self._size = self._size + 16
+                        OptionsList.Size = UDim2.fromOffset(207, self._size)
+                    end
+                    if self._state then
+                        local diff = self._size - old_size
+                        ModuleManager._multiplier = ModuleManager._multiplier + diff
+                        Module.Size = UDim2.fromOffset(241, 93 + ModuleManager._size + ModuleManager._multiplier)
+                        Module.Options.Size = UDim2.fromOffset(241, ModuleManager._size + ModuleManager._multiplier)
+                        Dropdown.Size = UDim2.fromOffset(207, 39 + self._size)
+                        Box.Size = UDim2.fromOffset(207, 22 + self._size)
+                    end
+                end
+
                 if Library:flag_type(settings.flag, 'string') then
                     DropdownManager:update(Library._config._flags[settings.flag])
                 else
-                    DropdownManager:update(settings.options[1])
+                    DropdownManager:update(settings.options[1] or "None")
                 end
                 Dropdown.MouseButton1Click:Connect(function()
                     DropdownManager:unfold_settings()
@@ -2669,7 +2726,7 @@ function Library:build_interface_tab()
         multi_dropdown = false,
         maximum_options = 4,
         callback = function(value)
-            local name = (typeof(value) == 'string' and value) or (typeof(value) == 'table' and value.Name)
+            local name = (typeof(value) == "string" and value) or (typeof(value) == "Instance" and value.Name) or (typeof(value) == "table" and value.Name) or tostring(value)
             local source = (name and Background_Presets[name]) or ''
             Background_Image_Id = source
             set_background_image(source)
