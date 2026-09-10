@@ -294,7 +294,7 @@ function Library.new(config)
     return self
 end
 
--- Notification Container
+-- Notification container
 local NotificationContainer = Instance.new("Frame")
 NotificationContainer.Name = "NotificationContainer"
 NotificationContainer.Size = UDim2.new(0, 300, 0, 0)
@@ -494,7 +494,6 @@ function Library:create_ui(config)
     UIStroke.Parent = Container
     table.insert(Library._elements, {obj = UIStroke, prop = "Color", tKey = "GroupStroke"})
 
-    -- Background image (added by the interface tab)
     local Background = Instance.new("ImageLabel")
     Background.Name = "Background"
     Background.Parent = Container
@@ -516,7 +515,6 @@ function Library:create_ui(config)
     Handler.BorderColor3 = Color3.fromRGB(0, 0, 0)
     Handler.Size = UDim2.new(0, 698, 0, 479)
     Handler.BorderSizePixel = 0
-    Handler.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     Handler.ZIndex = 1
     Handler.Parent = Container
     self._handler = Handler
@@ -529,16 +527,16 @@ function Library:create_ui(config)
     Tabs.Selectable = false
     Tabs.AutomaticCanvasSize = Enum.AutomaticSize.XY
     Tabs.BackgroundTransparency = 1
-    Tabs.Position = UDim2.new(0.026097271591424942, 0, 0.1111111119389534, 0)
+    Tabs.Position = UDim2.new(0.026, 0, 0.111, 0)
     Tabs.BorderSizePixel = 0
     Tabs.CanvasSize = UDim2.new(0, 0, 0.5, 0)
     Tabs.ZIndex = 2
     Tabs.Parent = Handler
 
-    local UIListLayout = Instance.new('UIListLayout')
-    UIListLayout.Padding = UDim.new(0, 4)
-    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    UIListLayout.Parent = Tabs
+    local UIListLayout_Tabs = Instance.new('UIListLayout')
+    UIListLayout_Tabs.Padding = UDim.new(0, 4)
+    UIListLayout_Tabs.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout_Tabs.Parent = Tabs
 
     local ClientName = Instance.new('TextLabel')
     ClientName.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
@@ -699,7 +697,6 @@ function Library:create_ui(config)
 
         AcrylicBlur.new(Container)
 
-        -- restore theme + bg
         for key, _ in pairs(DefaultTheme) do
             local saved = Library._config._flags['Theme_'..key]
             if saved then self:SetColor(key, self:hexToRGB(saved)) end
@@ -1023,17 +1020,18 @@ function Library:create_ui(config)
             UICorner.CornerRadius = UDim.new(1, 0)
             UICorner.Parent = Circle
 
+            -- FIX: keybind box is a TextButton so it accepts MouseButton1Click
             local Keybind = Instance.new('TextButton')
-Keybind.Name = 'Keybind'
-Keybind.Text = ''
-Keybind.AutoButtonColor = false
-Keybind.BackgroundTransparency = 0.7
-Keybind.Position = UDim2.new(0.15, 0, 0.735, 0)
-Keybind.Size = UDim2.new(0, 33, 0, 15)
-Keybind.BorderSizePixel = 0
-Keybind.BackgroundColor3 = config.PrimaryColor
-Keybind.ZIndex = 4
-Keybind.Parent = Header
+            Keybind.Name = 'Keybind'
+            Keybind.Text = ''
+            Keybind.AutoButtonColor = false
+            Keybind.BackgroundTransparency = 0.7
+            Keybind.Position = UDim2.new(0.15, 0, 0.735, 0)
+            Keybind.Size = UDim2.new(0, 33, 0, 15)
+            Keybind.BorderSizePixel = 0
+            Keybind.BackgroundColor3 = config.PrimaryColor
+            Keybind.ZIndex = 4
+            Keybind.Parent = Header
             table.insert(Library._elements, {obj = Keybind, prop = "BackgroundColor3", tKey = "Accent"})
 
             local UICorner = Instance.new('UICorner')
@@ -1172,7 +1170,6 @@ Keybind.Parent = Header
                     Toggle.BackgroundColor3 = config.PrimaryColor
                     Circle.BackgroundColor3 = config.PrimaryColor
                     Circle.Position = UDim2.fromScale(0.53, 0.5)
-                    Module.Size = UDim2.fromOffset(241, 93)
                 else
                     Toggle.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
                     Circle.BackgroundColor3 = Color3.fromRGB(66, 80, 115)
@@ -1192,6 +1189,7 @@ Keybind.Parent = Header
                 KeybindText.Text = 'None'
             end
 
+            -- Click keybind box to bind
             Keybind.MouseButton1Click:Connect(function()
                 if Library._choosing_keybind then return end
                 Library._choosing_keybind = true
@@ -1208,13 +1206,15 @@ Keybind.Parent = Header
                     else
                         KeybindText.Text = 'None'
                     end
-                    if choose_conn then choose_conn:Disconnect() end
-                    if cancel_conn then cancel_conn:Disconnect() end
+                    if choose_conn then choose_conn:Disconnect(); choose_conn = nil end
+                    if cancel_conn then cancel_conn:Disconnect(); cancel_conn = nil end
                 end
 
                 choose_conn = UserInputService.InputBegan:Connect(function(input, process)
                     if process then return end
                     if input.KeyCode == Enum.KeyCode.Unknown then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then return end
+
                     if input.KeyCode == Enum.KeyCode.Backspace then
                         Library._config._keybinds[settings.flag] = nil
                         Library._keybind_list[settings.flag] = nil
@@ -2232,7 +2232,17 @@ function Library:build_interface_tab()
 
     local Handler = self._handler
 
-    -- ── Configurations ───────────────────────────────────────
+    local function find_module(title)
+        for _, o in ipairs(Handler.Sections:GetDescendants()) do
+            if o.Name == 'Module' then
+                local h = o:FindFirstChild('Header')
+                local n = h and h:FindFirstChild('ModuleName')
+                if n and n.Text == title then return o end
+            end
+        end
+    end
+
+    -- Configurations
     local config_module = InterfaceTab:create_module({
         title = 'Configurations',
         flag = 'UI_Config_System',
@@ -2293,11 +2303,9 @@ function Library:build_interface_tab()
             end
             local loaded = Config:load('Configs/'..name, { _flags = {}, _keybinds = {} })
 
-            -- wipe registry-known flags so old profile values don't bleed
             for flag in pairs(Library._flag_registry) do
                 Library._config._flags[flag] = nil
             end
-            -- also wipe theme/bg keys
             for key in pairs(DefaultTheme) do
                 Library._config._flags['Theme_'..key] = nil
             end
@@ -2343,7 +2351,7 @@ function Library:build_interface_tab()
         end,
     })
 
-    -- ── Appearance (color picker) ────────────────────────────
+    -- Appearance (color picker)
     local color_module = InterfaceTab:create_module({
         title = 'Appearance',
         flag = 'Gui_Colors',
@@ -2351,17 +2359,6 @@ function Library:build_interface_tab()
         section = 'left',
         callback = function() end,
     })
-
-    -- find the module frame in the section
-    local function find_module(title)
-        for _, o in ipairs(Handler.Sections:GetDescendants()) do
-            if o.Name == 'Module' then
-                local h = o:FindFirstChild('Header')
-                local n = h and h:FindFirstChild('ModuleName')
-                if n and n.Text == title then return o end
-            end
-        end
-    end
 
     local color_frame = find_module('Appearance')
     local Color_Targets = { 'Background', 'Group', 'GroupStroke', 'Control', 'ControlHover', 'Text', 'TextDim', 'Accent' }
@@ -2607,7 +2604,7 @@ function Library:build_interface_tab()
         end
     end
 
-    -- ── Background ───────────────────────────────────────────
+    -- Background
     local bg_module = InterfaceTab:create_module({
         title = 'Background',
         flag = 'UI_Background',
@@ -2662,7 +2659,6 @@ function Library:build_interface_tab()
         end,
     })
 
-    -- Asset ID / URL textbox (built manually so we can hook FocusLost)
     local bg_frame = find_module('Background')
     if bg_frame then
         local Row = Instance.new('Frame')
@@ -2707,7 +2703,6 @@ function Library:build_interface_tab()
             Library._config._flags['Background_Image_Id'] = src
         end)
 
-        -- reset button
         local ResetRow = Instance.new('TextButton')
         ResetRow.Size = UDim2.fromOffset(207, 26)
         ResetRow.BackgroundColor3 = Color3.fromRGB(32,38,51)
@@ -2738,7 +2733,7 @@ function Library:build_interface_tab()
         end
     end
 
-    -- ── Notifications ────────────────────────────────────────
+    -- Notifications
     local notif_module = InterfaceTab:create_module({
         title = 'Notifications',
         flag = 'UI_Notifications',
@@ -2776,7 +2771,7 @@ function Library:build_interface_tab()
         end,
     })
 
-    -- ── Minimize Key ─────────────────────────────────────────
+    -- Minimize Key
     local min_module = InterfaceTab:create_module({
         title = 'Minimize Key',
         flag = 'UI_Minimize_Key',
@@ -2786,7 +2781,6 @@ function Library:build_interface_tab()
     })
 
     local min_frame = find_module('Minimize Key')
-    local min_keybox
 
     if min_frame then
         local Row = Instance.new('Frame')
@@ -2808,7 +2802,7 @@ function Library:build_interface_tab()
         Lbl.Parent = Row
         table.insert(Library._elements, {obj = Lbl, prop = "TextColor3", tKey = "Text"})
 
-        min_keybox = Instance.new('TextButton')
+        local min_keybox = Instance.new('TextButton')
         min_keybox.Name = 'Keybox'
         min_keybox.AnchorPoint = Vector2.new(1, 0.5)
         min_keybox.Position = UDim2.new(1, 0, 0.5, 0)
