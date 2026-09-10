@@ -43,14 +43,14 @@ export type Services = {
 local mouse = Players.LocalPlayer:GetMouse()
 
 local DefaultTheme = {
-    Background = Color3.fromRGB(12, 13, 15),
-    Group = Color3.fromRGB(22, 28, 38),
-    GroupStroke = Color3.fromRGB(52, 66, 89),
-    Control = Color3.fromRGB(32, 38, 51),
-    ControlHover = Color3.fromRGB(42, 50, 66),
-    Text = Color3.fromRGB(210, 210, 210),
-    TextDim = Color3.fromRGB(180, 180, 180),
-    Accent = Color3.fromRGB(161, 208, 42),
+    Background = Color3.fromRGB(10, 16, 20),
+    Group = Color3.fromRGB(16, 24, 30),
+    GroupStroke = Color3.fromRGB(46, 72, 84),
+    Control = Color3.fromRGB(24, 36, 44),
+    ControlHover = Color3.fromRGB(34, 50, 60),
+    Text = Color3.fromRGB(220, 235, 240),
+    TextDim = Color3.fromRGB(150, 172, 182),
+    Accent = Color3.fromRGB(120, 220, 235),
 }
 
 local Theme = {}
@@ -74,7 +74,12 @@ local Library = {
     _container = nil,
     _handler = nil,
     _flag_registry = {},
-    _keybind_list = {}
+    _keybind_list = {},
+    _notif_side = "Right",
+    _notif_opacity = 0,
+    _notif_image_transparency = 0.5,
+    _background_image_transparency = 0.5,
+    _module_transparency = 0
 }
 Library.__index = Library
 
@@ -327,7 +332,7 @@ function Library.new(config: table)
 
     local currentconfig = config or {
         title = config and config.title or "Achaotic",
-        PrimaryColor = config and config.PrimaryColor or Color3.fromRGB(161, 208, 42),
+        PrimaryColor = config and config.PrimaryColor or Color3.fromRGB(120, 220, 235),
     }
     
     Theme.Accent = currentconfig.PrimaryColor
@@ -350,6 +355,19 @@ UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Padding = UDim.new(0, 10)
 UIListLayout.Parent = NotificationContainer
 
+local function UpdateNotificationPosition()
+    if Library._notif_side == "Left" then
+        NotificationContainer.AnchorPoint = Vector2.new(0, 1)
+        NotificationContainer.Position = UDim2.new(0, 22, 1, -22)
+        UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+    else
+        NotificationContainer.AnchorPoint = Vector2.new(1, 1)
+        NotificationContainer.Position = UDim2.new(1, -22, 1, -22)
+        UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+    end
+end
+UpdateNotificationPosition()
+
 function Library.SendNotification(settings)
     local Notification = Instance.new("Frame")
     Notification.Size = UDim2.new(1, 0, 0, 60)
@@ -360,31 +378,64 @@ function Library.SendNotification(settings)
     Notification.AutomaticSize = Enum.AutomaticSize.Y
 
     local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 4)
+    UICorner.CornerRadius = UDim.new(0, 6)
     UICorner.Parent = Notification
 
     local InnerFrame = Instance.new("Frame")
     InnerFrame.Size = UDim2.new(1, 0, 0, 60)
     InnerFrame.Position = UDim2.new(0, 0, 0, 0)
     InnerFrame.BackgroundColor3 = Theme.Group
-    InnerFrame.BackgroundTransparency = 0.1
+    InnerFrame.BackgroundTransparency = Library._notif_opacity
     InnerFrame.BorderSizePixel = 0
     InnerFrame.Name = "InnerFrame"
     InnerFrame.Parent = Notification
     InnerFrame.AutomaticSize = Enum.AutomaticSize.Y
     table.insert(Library._elements, {obj = InnerFrame, prop = "BackgroundColor3", tKey = "Group"})
 
+    local InnerGradient = Instance.new("UIGradient")
+    InnerGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+    }
+    InnerGradient.Transparency = NumberSequence.new{
+        NumberSequenceKeypoint.new(0, 0.85),
+        NumberSequenceKeypoint.new(1, 1)
+    }
+    InnerGradient.Rotation = 90
+    InnerGradient.Parent = InnerFrame
+
     local InnerUICorner = Instance.new("UICorner")
-    InnerUICorner.CornerRadius = UDim.new(0, 4)
+    InnerUICorner.CornerRadius = UDim.new(0, 6)
     InnerUICorner.Parent = InnerFrame
+
+    local InnerStroke = Instance.new("UIStroke")
+    InnerStroke.Color = Theme.GroupStroke
+    InnerStroke.Transparency = 0.4
+    InnerStroke.Thickness = 1
+    InnerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    InnerStroke.Parent = InnerFrame
+    table.insert(Library._elements, {obj = InnerStroke, prop = "Color", tKey = "GroupStroke"})
+
+    local Accent = Instance.new("Frame")
+    Accent.Name = "Accent"
+    Accent.Size = UDim2.new(0, 3, 1, -12)
+    Accent.Position = UDim2.new(0, 6, 0, 6)
+    Accent.BackgroundColor3 = Theme.Accent
+    Accent.BorderSizePixel = 0
+    Accent.Parent = InnerFrame
+    table.insert(Library._elements, {obj = Accent, prop = "BackgroundColor3", tKey = "Accent"})
+
+    local AccentCorner = Instance.new("UICorner")
+    AccentCorner.CornerRadius = UDim.new(1, 0)
+    AccentCorner.Parent = Accent
 
     local Title = Instance.new("TextLabel")
     Title.Text = settings.title or "Notification Title"
     Title.TextColor3 = Theme.Text
     Title.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
     Title.TextSize = 14
-    Title.Size = UDim2.new(1, -10, 0, 20)
-    Title.Position = UDim2.new(0, 5, 0, 5)
+    Title.Size = UDim2.new(1, -25, 0, 20)
+    Title.Position = UDim2.new(0, 15, 0, 6)
     Title.BackgroundTransparency = 1
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.TextYAlignment = Enum.TextYAlignment.Center
@@ -398,8 +449,8 @@ function Library.SendNotification(settings)
     Body.TextColor3 = Theme.TextDim
     Body.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
     Body.TextSize = 12
-    Body.Size = UDim2.new(1, -10, 0, 30)
-    Body.Position = UDim2.new(0, 5, 0, 25)
+    Body.Size = UDim2.new(1, -25, 0, 30)
+    Body.Position = UDim2.new(0, 15, 0, 26)
     Body.BackgroundTransparency = 1
     Body.TextXAlignment = Enum.TextXAlignment.Left
     Body.TextYAlignment = Enum.TextYAlignment.Top
@@ -410,7 +461,7 @@ function Library.SendNotification(settings)
 
     task.spawn(function()
         wait(0.1)
-        local totalHeight = Title.TextBounds.Y + Body.TextBounds.Y + 10
+        local totalHeight = Title.TextBounds.Y + Body.TextBounds.Y + 12
         InnerFrame.Size = UDim2.new(1, 0, 0, totalHeight)
     end)
 
@@ -518,6 +569,18 @@ function Library:create_ui(config: table)
     Container.Parent = SecureScreenGui
     self._container = Container
     table.insert(Library._elements, {obj = Container, prop = "BackgroundColor3", tKey = "Background"})
+
+    local ContainerGradient = Instance.new("UIGradient")
+    ContainerGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+    }
+    ContainerGradient.Transparency = NumberSequence.new{
+        NumberSequenceKeypoint.new(0, 0.95),
+        NumberSequenceKeypoint.new(1, 0.82)
+    }
+    ContainerGradient.Rotation = 90
+    ContainerGradient.Parent = Container
 
     local Background = Instance.new("ImageLabel")
     Background.Name = "Background"
@@ -753,11 +816,11 @@ function Library:create_ui(config: table)
                     }):Play()
                     TweenService:Create(object.TextLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         TextTransparency = 0.2,
-                        TextColor3 = config.PrimaryColor
+                        TextColor3 = Theme.Accent
                     }):Play()
                     TweenService:Create(object.Icon, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         ImageTransparency = 0.2,
-                        ImageColor3 = config.PrimaryColor
+                        ImageColor3 = Theme.Accent
                     }):Play()
                 end
                 continue
@@ -958,7 +1021,7 @@ function Library:create_ui(config: table)
             
             local ModuleName = Instance.new('TextLabel')
             ModuleName.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-            ModuleName.TextColor3 = config.PrimaryColor
+            ModuleName.TextColor3 = Theme.Accent
             ModuleName.TextTransparency = 0.2
             ModuleName.Text = settings.title or "Module"
             ModuleName.Name = 'ModuleName'
@@ -973,7 +1036,7 @@ function Library:create_ui(config: table)
             
             local Description = Instance.new('TextLabel')
             Description.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-            Description.TextColor3 = config.PrimaryColor
+            Description.TextColor3 = Theme.Accent
             Description.TextTransparency = 0.7
             Description.Text = settings.description
             Description.Name = 'Description'
@@ -2195,17 +2258,69 @@ function Library:build_interface_tab()
         Background_Image.ScaleType = Enum.ScaleType.Crop
     end
 
+    local Transparent_Targets = { Module = true, Box = true, Keybind = true, Reset = true, AssetId = true }
+
     local function set_module_transparency(value)
         for _, object in self._ui:GetDescendants() do
-            if object.Name == 'Container' or object.Name == 'Handler' then continue end
-            if object:IsA('Frame') or object:IsA('TextButton') or object:IsA('TextBox') then
-                if object.BackgroundTransparency == 1 then continue end
+            if Transparent_Targets[object.Name] then
                 object.BackgroundTransparency = value
             end
         end
     end
 
-    -- Configurations
+    local function find_module_frame(title)
+        for _, object in self._ui:GetDescendants() do
+            if object.Name == 'Module' then
+                local header = object:FindFirstChild('Header')
+                local module_name = header and header:FindFirstChild('ModuleName')
+                if module_name and module_name.Text == title then
+                    return object
+                end
+            end
+        end
+    end
+
+    local function build_reset_button(parent, layout_order, on_click)
+        local Reset_Holder = Instance.new('Frame')
+        Reset_Holder.Name = 'ResetHolder'
+        Reset_Holder.Size = UDim2.fromOffset(207, 23)
+        Reset_Holder.BackgroundTransparency = 1
+        Reset_Holder.BorderSizePixel = 0
+        Reset_Holder.LayoutOrder = layout_order
+        Reset_Holder.Parent = parent
+
+        local Reset = Instance.new('TextButton')
+        Reset.Name = 'Reset'
+        Reset.AnchorPoint = Vector2.new(0, 1)
+        Reset.Position = UDim2.new(0, 0, 1, 0)
+        Reset.Size = UDim2.fromOffset(207, 22)
+        Reset.BackgroundColor3 = Theme.Control
+        Reset.BorderSizePixel = 0
+        Reset.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+        Reset.TextColor3 = Theme.Text
+        Reset.TextSize = 12
+        Reset.AutoButtonColor = false
+        Reset.Text = 'Reset'
+        Reset.Parent = Reset_Holder
+        table.insert(self._elements, {obj = Reset, prop = "BackgroundColor3", tKey = "Control"})
+        table.insert(self._elements, {obj = Reset, prop = "TextColor3", tKey = "Text"})
+
+        local ResetCorner = Instance.new('UICorner')
+        ResetCorner.CornerRadius = UDim.new(0, 4)
+        ResetCorner.Parent = Reset
+
+        local ResetStroke = Instance.new('UIStroke')
+        ResetStroke.Color = Theme.GroupStroke
+        ResetStroke.Transparency = 0.5
+        ResetStroke.Thickness = 1
+        ResetStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        ResetStroke.Parent = Reset
+        table.insert(self._elements, {obj = ResetStroke, prop = "Color", tKey = "GroupStroke"})
+
+        Reset.MouseButton1Click:Connect(on_click)
+    end
+
+    -- Configurations module
     local config_module = InterfaceTab:create_module({
         title = 'Configurations',
         flag = 'UI_Config_System',
@@ -2268,7 +2383,6 @@ function Library:build_interface_tab()
                 return
             end
             local loaded = Config:load('Configs/'..name, { _flags = {}, _keybinds = {} })
-            
             Library._config._flags = loaded._flags or {}
             Library._config._keybinds = loaded._keybinds or {}
 
@@ -2276,6 +2390,18 @@ function Library:build_interface_tab()
                 if Library._config._flags[flag] ~= nil then
                     pcall(func, Library._config._flags[flag])
                 end
+            end
+
+            for key, color in pairs(DefaultTheme) do
+                local saved = Library._config._flags['Theme_'..key]
+                if saved then
+                    Library:SetColor(key, Library:hexToRGB(saved))
+                end
+            end
+
+            local saved_bg = Library._config._flags['Background_Image']
+            if typeof(saved_bg) == "string" then
+                Library:SetBackground(saved_bg, Library._config._flags['Background_Transparency'] or 0.5)
             end
 
             self:Notify({title = 'Config', text = 'Loaded '..name, duration = 3})
@@ -2296,7 +2422,7 @@ function Library:build_interface_tab()
         end
     })
 
-    -- Appearance
+    -- Appearance module
     local color_module = InterfaceTab:create_module({
         title = 'Appearance',
         flag = 'Gui_Colors',
@@ -2304,18 +2430,6 @@ function Library:build_interface_tab()
         section = 'left',
         callback = function(state) end,
     })
-
-    local function find_module_frame(title)
-        for _, object in self._ui:GetDescendants() do
-            if object.Name == 'Module' then
-                local header = object:FindFirstChild('Header')
-                local module_name = header and header:FindFirstChild('ModuleName')
-                if module_name and module_name.Text == title then
-                    return object
-                end
-            end
-        end
-    end
 
     local Color_Module_Frame = find_module_frame('Appearance')
     local Color_Targets = { 'Background', 'Group', 'GroupStroke', 'Control', 'ControlHover', 'Text', 'TextDim', 'Accent' }
@@ -2333,7 +2447,7 @@ function Library:build_interface_tab()
         Popup.Name = 'ColorPopup'
         Popup.Position = UDim2.fromOffset(8, 8)
         Popup.Size = UDim2.fromOffset(214, 144)
-        Popup.BackgroundColor3 = Color3.fromRGB(14, 14, 16)
+        Popup.BackgroundColor3 = Color3.fromRGB(14, 20, 24)
         Popup.BorderSizePixel = 0
         Popup.Visible = false
         Popup.ZIndex = 30
@@ -2571,7 +2685,7 @@ function Library:build_interface_tab()
             TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
             TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
             TitleLabel.Parent = Row
-            table.insert(Library._elements, {obj = TitleLabel, prop = "TextColor3", tKey = "Text"})
+            table.insert(self._elements, {obj = TitleLabel, prop = "TextColor3", tKey = "Text"})
 
             local Swatch = Instance.new('TextButton')
             Swatch.Name = 'Swatch'
@@ -2594,7 +2708,7 @@ function Library:build_interface_tab()
             SwatchStroke.Thickness = 1
             SwatchStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             SwatchStroke.Parent = Swatch
-            table.insert(Library._elements, {obj = SwatchStroke, prop = "Color", tKey = "GroupStroke"})
+            table.insert(self._elements, {obj = SwatchStroke, prop = "Color", tKey = "GroupStroke"})
 
             Swatch.MouseButton1Click:Connect(function() open_popup(target, Swatch) end)
             Row.MouseButton1Click:Connect(function() open_popup(target, Swatch) end)
@@ -2606,43 +2720,7 @@ function Library:build_interface_tab()
             build_color_row(index, target)
         end
 
-        local Reset_Holder = Instance.new('Frame')
-        Reset_Holder.Name = 'ResetHolder'
-        Reset_Holder.Size = UDim2.fromOffset(207, 23)
-        Reset_Holder.BackgroundTransparency = 1
-        Reset_Holder.BorderSizePixel = 0
-        Reset_Holder.LayoutOrder = #Color_Targets + 3
-        Reset_Holder.Parent = Options
-
-        local Reset = Instance.new('TextButton')
-        Reset.Name = 'Reset'
-        Reset.AnchorPoint = Vector2.new(0, 1)
-        Reset.Position = UDim2.new(0, 0, 1, 0)
-        Reset.Size = UDim2.fromOffset(207, 22)
-        Reset.BackgroundColor3 = Theme.Control
-        Reset.BorderSizePixel = 0
-        Reset.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-        Reset.TextColor3 = Theme.Text
-        Reset.TextSize = 12
-        Reset.AutoButtonColor = false
-        Reset.Text = 'Reset'
-        Reset.Parent = Reset_Holder
-        table.insert(Library._elements, {obj = Reset, prop = "BackgroundColor3", tKey = "Control"})
-        table.insert(Library._elements, {obj = Reset, prop = "TextColor3", tKey = "Text"})
-
-        local ResetCorner = Instance.new('UICorner')
-        ResetCorner.CornerRadius = UDim.new(0, 4)
-        ResetCorner.Parent = Reset
-
-        local ResetStroke = Instance.new('UIStroke')
-        ResetStroke.Color = Theme.GroupStroke
-        ResetStroke.Transparency = 0.5
-        ResetStroke.Thickness = 1
-        ResetStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        ResetStroke.Parent = Reset
-        table.insert(Library._elements, {obj = ResetStroke, prop = "Color", tKey = "GroupStroke"})
-
-        Reset.MouseButton1Click:Connect(function()
+        build_reset_button(Options, #Color_Targets + 3, function()
             close_popup()
             for target, color in pairs(DefaultTheme) do
                 if typeof(color) == "Color3" then
@@ -2677,7 +2755,7 @@ function Library:build_interface_tab()
         end
     end
 
-    -- Background
+    -- Background module
     local image_module = InterfaceTab:create_module({
         title = 'Background',
         flag = 'UI_Background',
@@ -2746,6 +2824,7 @@ function Library:build_interface_tab()
         callback = function(value)
             if not self._background then return end
             self._background.ImageTransparency = value / 100
+            self._config._flags['Background_Transparency'] = value / 100
         end,
     })
 
@@ -2791,9 +2870,9 @@ function Library:build_interface_tab()
         Input.ClipsDescendants = true
         Input.Text = Background_Image_Id
         Input.Parent = Row
-        table.insert(Library._elements, {obj = Input, prop = "BackgroundColor3", tKey = "Accent"})
-        table.insert(Library._elements, {obj = Input, prop = "TextColor3", tKey = "Text"})
-        table.insert(Library._elements, {obj = Input, prop = "PlaceholderColor3", tKey = "TextDim"})
+        table.insert(self._elements, {obj = Input, prop = "BackgroundColor3", tKey = "Accent"})
+        table.insert(self._elements, {obj = Input, prop = "TextColor3", tKey = "Text"})
+        table.insert(self._elements, {obj = Input, prop = "PlaceholderColor3", tKey = "TextDim"})
 
         Asset_Input = Input
 
@@ -2810,35 +2889,7 @@ function Library:build_interface_tab()
             self:SetBackground(source, self._background.ImageTransparency)
         end)
 
-        local Reset_Holder = Instance.new('Frame')
-        Reset_Holder.Name = 'ResetHolder'
-        Reset_Holder.Size = UDim2.fromOffset(207, 23)
-        Reset_Holder.BackgroundTransparency = 1
-        Reset_Holder.BorderSizePixel = 0
-        Reset_Holder.LayoutOrder = 4
-        Reset_Holder.Parent = Options
-
-        local Reset = Instance.new('TextButton')
-        Reset.Name = 'Reset'
-        Reset.AnchorPoint = Vector2.new(0, 1)
-        Reset.Position = UDim2.new(0, 0, 1, 0)
-        Reset.Size = UDim2.fromOffset(207, 22)
-        Reset.BackgroundColor3 = Theme.Control
-        Reset.BorderSizePixel = 0
-        Reset.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-        Reset.TextColor3 = Theme.Text
-        Reset.TextSize = 12
-        Reset.AutoButtonColor = false
-        Reset.Text = 'Reset'
-        Reset.Parent = Reset_Holder
-        table.insert(Library._elements, {obj = Reset, prop = "BackgroundColor3", tKey = "Control"})
-        table.insert(Library._elements, {obj = Reset, prop = "TextColor3", tKey = "Text"})
-
-        local ResetCorner = Instance.new('UICorner')
-        ResetCorner.CornerRadius = UDim.new(0, 4)
-        ResetCorner.Parent = Reset
-
-        Reset.MouseButton1Click:Connect(function()
+        build_reset_button(Options, 4, function()
             Input.Text = ''
             Background_Image_Id = ''
             set_background_image('')
@@ -2860,7 +2911,41 @@ function Library:build_interface_tab()
     set_background_image(Background_Image_Id)
     set_module_transparency((self._config._flags['Background_Module_Transparency'] or 0) / 100)
 
-    -- Settings
+    -- Notifications module
+    local notif_module = InterfaceTab:create_module({
+        title = 'Notifications',
+        flag = 'UI_Notifications',
+        description = 'Configure notification behavior',
+        section = 'right',
+        callback = function(state) end,
+    })
+
+    notif_module:create_dropdown({
+        title = 'Side',
+        flag = 'UI_Notif_Side',
+        options = { 'Left', 'Right' },
+        multi_dropdown = false,
+        maximum_options = 2,
+        callback = function(value)
+            local side = (typeof(value) == "string" and value) or value.Name
+            Library._notif_side = side
+            UpdateNotificationPosition()
+        end,
+    })
+
+    notif_module:create_slider({
+        title = 'Opacity',
+        flag = 'UI_Notif_Opacity',
+        minimum_value = 0,
+        maximum_value = 100,
+        value = 0,
+        round_number = true,
+        callback = function(value)
+            Library._notif_opacity = value / 100
+        end,
+    })
+
+    -- Settings module
     local settings_module = InterfaceTab:create_module({
         title = 'Settings',
         flag = 'UI_Settings',
@@ -2968,26 +3053,21 @@ function Library:build_interface_tab()
     local GraphPanel = Instance.new("Frame")
     GraphPanel.Size = UDim2.new(0, 184, 0, 76)
     GraphPanel.Position = UDim2.new(0, 20, 0.5, -38)
-    GraphPanel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    GraphPanel.BackgroundColor3 = Color3.fromRGB(16, 24, 30)
     GraphPanel.BorderSizePixel = 0
     GraphPanel.Active = true
     GraphPanel.Visible = false
     GraphPanel.Parent = OverlayGui
+    table.insert(Library._elements, {obj = GraphPanel, prop = "BackgroundColor3", tKey = "Group"})
     
-    Instance.new("UICorner", GraphPanel).CornerRadius = UDim.new(0, 7)
+    local GraphPanelCorner = Instance.new("UICorner", GraphPanel)
+    GraphPanelCorner.CornerRadius = UDim.new(0, 7)
     
     local GraphStroke = Instance.new("UIStroke", GraphPanel)
-    GraphStroke.Color = Color3.fromRGB(255, 255, 255)
-    GraphStroke.Transparency = 0.88
+    GraphStroke.Color = Theme.GroupStroke
+    GraphStroke.Transparency = 0.5
     GraphStroke.Thickness = 1
-    
-    local GraphPanelGradient = Instance.new("UIGradient", GraphPanel)
-    GraphPanelGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(145, 145, 145)),
-        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(14, 14, 16)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
-    }
-    GraphPanelGradient.Rotation = 90
+    table.insert(Library._elements, {obj = GraphStroke, prop = "Color", tKey = "GroupStroke"})
     
     local PingValue = Instance.new("TextLabel", GraphPanel)
     PingValue.Size = UDim2.new(0, 82, 0, 21)
@@ -2995,9 +3075,10 @@ function Library:build_interface_tab()
     PingValue.BackgroundTransparency = 1
     PingValue.Font = Enum.Font.GothamBold
     PingValue.Text = "0 ms"
-    PingValue.TextColor3 = Color3.fromRGB(238, 238, 242)
+    PingValue.TextColor3 = Theme.Text
     PingValue.TextSize = 15
     PingValue.TextXAlignment = Enum.TextXAlignment.Right
+    table.insert(Library._elements, {obj = PingValue, prop = "TextColor3", tKey = "Text"})
     
     local GraphArea = Instance.new("Frame", GraphPanel)
     GraphArea.Size = UDim2.new(1, -18, 0, 38)
@@ -3012,42 +3093,29 @@ function Library:build_interface_tab()
         Bar.AnchorPoint = Vector2.new(0, 1)
         Bar.Size = UDim2.new(0, 7, 0, 5)
         Bar.Position = UDim2.new(0, (index-1)*7, 1, -4)
-        Bar.BackgroundColor3 = Color3.fromRGB(126, 203, 255)
+        Bar.BackgroundColor3 = Theme.Accent
         Bar.BorderSizePixel = 0
         Bar.ZIndex = 2
-        
-        local BarGradient = Instance.new("UIGradient", Bar)
-        BarGradient.Color = ColorSequence.new{
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(205, 237, 255)),
-            ColorSequenceKeypoint.new(0.3, Color3.fromRGB(151, 216, 255)),
-            ColorSequenceKeypoint.new(0.72, Color3.fromRGB(92, 181, 242)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(48, 122, 190))
-        }
-        BarGradient.Rotation = 90
+        table.insert(Library._elements, {obj = Bar, prop = "BackgroundColor3", tKey = "Accent"})
         Bars[index] = Bar
     end
 
     local FpsPanel = Instance.new("Frame", OverlayGui)
     FpsPanel.Size = UDim2.new(0, 140, 0, 34)
     FpsPanel.Position = UDim2.new(0, 20, 0.5, 44)
-    FpsPanel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    FpsPanel.BackgroundColor3 = Color3.fromRGB(16, 24, 30)
     FpsPanel.BorderSizePixel = 0
     FpsPanel.Active = true
     FpsPanel.Visible = false
-    Instance.new("UICorner", FpsPanel).CornerRadius = UDim.new(0, 12)
+    table.insert(Library._elements, {obj = FpsPanel, prop = "BackgroundColor3", tKey = "Group"})
+    local FpsPanelCorner = Instance.new("UICorner", FpsPanel)
+    FpsPanelCorner.CornerRadius = UDim.new(0, 12)
     
     local FpsStroke = Instance.new("UIStroke", FpsPanel)
-    FpsStroke.Color = Color3.fromRGB(255, 255, 255)
-    FpsStroke.Transparency = 0.86
+    FpsStroke.Color = Theme.GroupStroke
+    FpsStroke.Transparency = 0.5
     FpsStroke.Thickness = 1
-    
-    local FpsPanelGradient = Instance.new("UIGradient", FpsPanel)
-    FpsPanelGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(145, 145, 145)),
-        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(14, 14, 16)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
-    }
-    FpsPanelGradient.Rotation = 90
+    table.insert(Library._elements, {obj = FpsStroke, prop = "Color", tKey = "GroupStroke"})
     
     local FpsValue = Instance.new("TextLabel", FpsPanel)
     FpsValue.Size = UDim2.new(0, 68, 1, 0)
@@ -3055,9 +3123,10 @@ function Library:build_interface_tab()
     FpsValue.BackgroundTransparency = 1
     FpsValue.Font = Enum.Font.GothamBold
     FpsValue.Text = "0"
-    FpsValue.TextColor3 = Color3.fromRGB(255, 255, 255)
+    FpsValue.TextColor3 = Theme.Accent
     FpsValue.TextSize = 24
     FpsValue.TextXAlignment = Enum.TextXAlignment.Left
+    table.insert(Library._elements, {obj = FpsValue, prop = "TextColor3", tKey = "Accent"})
     
     local FpsLabel = Instance.new("TextLabel", FpsPanel)
     FpsLabel.Size = UDim2.new(0, 48, 1, 0)
@@ -3065,8 +3134,9 @@ function Library:build_interface_tab()
     FpsLabel.BackgroundTransparency = 1
     FpsLabel.Font = Enum.Font.GothamBold
     FpsLabel.Text = "FPS"
-    FpsLabel.TextColor3 = Color3.fromRGB(178, 178, 185)
+    FpsLabel.TextColor3 = Theme.TextDim
     FpsLabel.TextSize = 12
+    table.insert(Library._elements, {obj = FpsLabel, prop = "TextColor3", tKey = "TextDim"})
 
     local graphDragging, graphDragStart, graphStartPos = false, nil, nil
     GraphPanel.InputBegan:Connect(function(input)
@@ -3171,57 +3241,65 @@ function Library:build_interface_tab()
     KeybindFrame.Name = "OverlayFrame"
     KeybindFrame.Size = UDim2.new(0, 200, 0, 38)
     KeybindFrame.Position = UDim2.new(0, 20, 0.5, -19)
-    KeybindFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 10)
+    KeybindFrame.BackgroundColor3 = Color3.fromRGB(16, 24, 30)
     KeybindFrame.BackgroundTransparency = 0.12
     KeybindFrame.BorderSizePixel = 0
     KeybindFrame.Parent = KeybindOverlayGui
+    table.insert(Library._elements, {obj = KeybindFrame, prop = "BackgroundColor3", tKey = "Group"})
 
-    Instance.new("UICorner", KeybindFrame).CornerRadius = UDim.new(0, 7)
+    local KFCorner = Instance.new("UICorner", KeybindFrame)
+    KFCorner.CornerRadius = UDim.new(0, 7)
 
     local frameBorder = Instance.new("UIStroke")
-    frameBorder.Color = Color3.fromRGB(28, 28, 34)
+    frameBorder.Color = Theme.GroupStroke
     frameBorder.Thickness = 1
     frameBorder.Parent = KeybindFrame
+    table.insert(Library._elements, {obj = frameBorder, prop = "Color", tKey = "GroupStroke"})
 
     local header = Instance.new("Frame")
     header.Name = "Header"
     header.Size = UDim2.new(1, 0, 0, 34)
     header.Position = UDim2.new(0, 0, 0, 0)
-    header.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+    header.BackgroundColor3 = Theme.Group
     header.BorderSizePixel = 0
     header.ZIndex = 2
     header.Parent = KeybindFrame
+    table.insert(Library._elements, {obj = header, prop = "BackgroundColor3", tKey = "Group"})
 
-    Instance.new("UICorner", header).CornerRadius = UDim.new(0, 7)
+    local HCorner = Instance.new("UICorner", header)
+    HCorner.CornerRadius = UDim.new(0, 7)
 
     local headerDivider = Instance.new("Frame")
     headerDivider.Size = UDim2.new(1, 0, 0, 1)
     headerDivider.Position = UDim2.new(0, 0, 1, -1)
-    headerDivider.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+    headerDivider.BackgroundColor3 = Theme.GroupStroke
     headerDivider.BorderSizePixel = 0
     headerDivider.ZIndex = 3
     headerDivider.Parent = header
+    table.insert(Library._elements, {obj = headerDivider, prop = "BackgroundColor3", tKey = "GroupStroke"})
 
     local keyboardIcon = Instance.new("ImageLabel")
     keyboardIcon.Size = UDim2.new(0, 16, 0, 16)
     keyboardIcon.Position = UDim2.new(0, 10, 0.5, -8)
     keyboardIcon.BackgroundTransparency = 1
     keyboardIcon.Image = "rbxassetid://81598136527047"
-    keyboardIcon.ImageColor3 = Color3.fromRGB(85, 85, 100)
+    keyboardIcon.ImageColor3 = Theme.Accent
     keyboardIcon.ZIndex = 3
     keyboardIcon.Parent = header
+    table.insert(Library._elements, {obj = keyboardIcon, prop = "ImageColor3", tKey = "Accent"})
 
     local headerLabel = Instance.new("TextLabel")
     headerLabel.Size = UDim2.new(1, -36, 1, 0)
     headerLabel.Position = UDim2.new(0, 32, 0, 0)
     headerLabel.BackgroundTransparency = 1
     headerLabel.Text = "KEYBINDS"
-    headerLabel.TextColor3 = Color3.fromRGB(85, 85, 100)
+    headerLabel.TextColor3 = Theme.Accent
     headerLabel.TextSize = 10
     headerLabel.Font = Enum.Font.GothamBold
     headerLabel.TextXAlignment = Enum.TextXAlignment.Left
     headerLabel.ZIndex = 3
     headerLabel.Parent = header
+    table.insert(Library._elements, {obj = headerLabel, prop = "TextColor3", tKey = "Accent"})
 
     local dragging = false
     local dragStart = nil
@@ -3275,9 +3353,10 @@ function Library:build_interface_tab()
                 div.Name = "Divider"
                 div.Size = UDim2.new(1, -20, 0, 1)
                 div.Position = UDim2.new(0, 10, 0, yBase)
-                div.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+                div.BackgroundColor3 = Theme.GroupStroke
                 div.BorderSizePixel = 0
                 div.Parent = KeybindFrame
+                table.insert(Library._elements, {obj = div, prop = "BackgroundColor3", tKey = "GroupStroke"})
             end
             
             local row = Instance.new("Frame")
@@ -3292,22 +3371,24 @@ function Library:build_interface_tab()
             labelText.Position = UDim2.new(0, 0, 0, 0)
             labelText.BackgroundTransparency = 1
             labelText.Text = bind.flag
-            labelText.TextColor3 = Color3.fromRGB(70, 70, 80)
+            labelText.TextColor3 = Theme.TextDim
             labelText.TextSize = 13
             labelText.Font = Enum.Font.GothamSemibold
             labelText.TextXAlignment = Enum.TextXAlignment.Left
             labelText.Parent = row
+            table.insert(Library._elements, {obj = labelText, prop = "TextColor3", tKey = "TextDim"})
             
             local keyText = Instance.new("TextLabel")
             keyText.Size = UDim2.new(0, 32, 1, 0)
             keyText.Position = UDim2.new(1, -32, 0, 0)
             keyText.BackgroundTransparency = 1
             keyText.Text = "[" .. bind.key .. "]"
-            keyText.TextColor3 = Color3.fromRGB(70, 70, 80)
+            keyText.TextColor3 = Theme.Accent
             keyText.TextSize = 12
             keyText.Font = Enum.Font.GothamBold
             keyText.TextXAlignment = Enum.TextXAlignment.Right
             keyText.Parent = row
+            table.insert(Library._elements, {obj = keyText, prop = "TextColor3", tKey = "Accent"})
             
             row:SetAttribute("Flag", bind.flag)
             
