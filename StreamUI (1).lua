@@ -2507,16 +2507,16 @@ function Library:build_interface_tab()
         local function begin_drag(key, frame, update)
             calibrate_pointer(frame)
             update()
-            self.Connections[key..'_move'] = UserInputService.InputChanged:Connect(function(input)
+            Connections[key..'_move'] = UserInputService.InputChanged:Connect(function(input)
                 if input.UserInputType ~= Enum.UserInputType.MouseMovement
                    and input.UserInputType ~= Enum.UserInputType.Touch then return end
                 update()
             end)
-            self.Connections[key..'_ended'] = UserInputService.InputEnded:Connect(function(input)
+            Connections[key..'_ended'] = UserInputService.InputEnded:Connect(function(input)
                 if input.UserInputType ~= Enum.UserInputType.MouseButton1
                    and input.UserInputType ~= Enum.UserInputType.Touch then return end
-                self.Connections:disconnect(key..'_move')
-                self.Connections:disconnect(key..'_ended')
+                Connections:disconnect(key..'_move')
+                Connections:disconnect(key..'_ended')
             end)
         end
 
@@ -2660,12 +2660,12 @@ function Library:build_interface_tab()
             begin_drag('gui_color_hue', Hue, update_hue)
         end)
 
-        self.Connections['gui_color_section'] = Color_Module_Frame.Parent:GetPropertyChangedSignal('Visible'):Connect(function()
+        Connections['gui_color_section'] = Color_Module_Frame.Parent:GetPropertyChangedSignal('Visible'):Connect(function()
             if Color_Module_Frame.Parent.Visible then return end
             close_popup()
         end)
 
-        self.Connections['gui_color_visiblity'] = Color_Module_Frame:GetPropertyChangedSignal('Size'):Connect(function()
+        Connections['gui_color_visiblity'] = Color_Module_Frame:GetPropertyChangedSignal('Size'):Connect(function()
             if Color_Module_Frame.AbsoluteSize.Y > 100 then return end
             close_popup()
         end)
