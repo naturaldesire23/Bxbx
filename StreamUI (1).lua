@@ -1023,15 +1023,17 @@ function Library:create_ui(config)
             UICorner.CornerRadius = UDim.new(1, 0)
             UICorner.Parent = Circle
 
-            local Keybind = Instance.new('Frame')
-            Keybind.Name = 'Keybind'
-            Keybind.BackgroundTransparency = 0.7
-            Keybind.Position = UDim2.new(0.15, 0, 0.735, 0)
-            Keybind.Size = UDim2.new(0, 33, 0, 15)
-            Keybind.BorderSizePixel = 0
-            Keybind.BackgroundColor3 = config.PrimaryColor
-            Keybind.ZIndex = 4
-            Keybind.Parent = Header
+            local Keybind = Instance.new('TextButton')
+Keybind.Name = 'Keybind'
+Keybind.Text = ''
+Keybind.AutoButtonColor = false
+Keybind.BackgroundTransparency = 0.7
+Keybind.Position = UDim2.new(0.15, 0, 0.735, 0)
+Keybind.Size = UDim2.new(0, 33, 0, 15)
+Keybind.BorderSizePixel = 0
+Keybind.BackgroundColor3 = config.PrimaryColor
+Keybind.ZIndex = 4
+Keybind.Parent = Header
             table.insert(Library._elements, {obj = Keybind, prop = "BackgroundColor3", tKey = "Accent"})
 
             local UICorner = Instance.new('UICorner')
