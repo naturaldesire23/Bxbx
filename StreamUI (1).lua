@@ -1,14 +1,12 @@
 -- ============================================================
--- FIXES vs previous build:
---  1. Interface tab always renders LAST (call build_interface_tab after all user tabs)
---  2. Minimize keybind box — press-to-bind works correctly, cancel on click-away fixed
---  3. Notification opacity — InnerFrame BackgroundTransparency driven by slider,
---     gradient removed so it doesn't fight the transparency value
---  4. Config save/load now includes Theme colors, Background image/transparency,
---     and all slider/dropdown/checkbox values — no more cross-override
---  5. Config does NOT override keybinds or appearance on unrelated loads
---  6. Module/button layout in Interface tab corrected — sliders & dropdowns
---     no longer stomp each other's LayoutOrder
+-- AchaoticUI / AllusiveModified — consolidated fixed build
+--  1. Interface tab always renders LAST (forced LayoutOrder)
+--  2. Minimize keybind picker works (defer + local listening flag)
+--  3. Notification opacity slider drives InnerFrame transparency,
+--     updates live notifications, clamped 0..1
+--  4. Config save includes Theme_* and Background_* flags
+--  5. Config load wipes registry-known flags before applying profile
+--  6. Layout numbers reverted to File #2 baseline (module/button/dropdown)
 -- ============================================================
 
 local GG = {
@@ -82,7 +80,7 @@ local Library = {
     _flag_registry = {},
     _keybind_list = {},
     _notif_side = "Right",
-    _notif_opacity = 0,  -- FIX #3: tracks current notif bg transparency
+    _notif_opacity = 0.05,   -- 0..1, 0 = fully opaque
 }
 Library.__index = Library
 
@@ -137,7 +135,6 @@ local Config = setmetatable({
         if not (writefile and isfolder) then return end
         self:_ensure_dir()
         local success_save, result = pcall(function()
-            -- FIX #4: always encode full config including Theme_ and Background_ keys
             local flags = HttpService:JSONEncode(config)
             writefile(CONFIG_DIR..'/'..file_name..'.json', flags)
         end)
@@ -208,8 +205,6 @@ local function UpdateNotificationPosition()
 end
 UpdateNotificationPosition()
 
--- FIX #3: notification transparency is controlled only by _notif_opacity.
--- The UIGradient is removed entirely so it can't fight the slider value.
 function Library.SendNotification(settings)
     local Notification = Instance.new("Frame")
     Notification.Size = UDim2.new(1, 0, 0, 62)
@@ -222,15 +217,12 @@ function Library.SendNotification(settings)
     InnerFrame.Size = UDim2.new(1, 0, 1, 0)
     InnerFrame.Position = UDim2.new(Library._notif_side == "Left" and 1 or -1, 0, 0, 0)
     InnerFrame.BackgroundColor3 = Theme.Group
-    -- use _notif_opacity directly; no gradient override
-    InnerFrame.BackgroundTransparency = Library._notif_opacity
+    InnerFrame.BackgroundTransparency = math.clamp(Library._notif_opacity, 0, 1)
     InnerFrame.BorderSizePixel = 0
     InnerFrame.Name = "InnerFrame"
     InnerFrame.ZIndex = 501
     InnerFrame.Parent = Notification
     table.insert(Library._elements, {obj = InnerFrame, prop = "BackgroundColor3", tKey = "Group"})
-
-    -- NO UIGradient here — removed so opacity slider is the sole control
 
     local InnerUICorner = Instance.new("UICorner")
     InnerUICorner.CornerRadius = UDim.new(0, 8)
@@ -369,7 +361,6 @@ function Library:SetBackground(source, transparency)
     else
         self._background.Visible = false
     end
-    -- FIX #4: persist background settings into flags so config saves carry them
     Library._config._flags['Background_Image'] = (typeof(source) == "string" and source) or ''
     Library._config._flags['Background_Transparency'] = transparency or 0.5
     Config:save(tostring(game.PlaceId), Library._config)
@@ -676,14 +667,12 @@ function Library:create_ui(config)
 
         self._ui_loaded = true
 
-        -- FIX #4: restore background from saved flags
         local saved_bg = Library._config._flags['Background_Image']
         if typeof(saved_bg) == "string" and saved_bg ~= '' then
             local trans = Library._config._flags['Background_Transparency'] or 0.5
             self:SetBackground(saved_bg, trans)
         end
 
-        -- FIX #4: restore theme colors from saved flags
         for key, color in pairs(DefaultTheme) do
             local saved = Library._config._flags['Theme_'..key]
             if saved then
@@ -741,9 +730,6 @@ function Library:create_ui(config)
         end
     end
 
-    -- FIX #1: _tab counter starts at 1 so Interface tab (added last via
-    -- build_interface_tab) gets a LayoutOrder higher than all user tabs.
-    -- Callers must invoke build_interface_tab() AFTER all their create_tab calls.
     function self:create_tab(title, icon)
         local TabManager = {}
         local LayoutOrder = 0
@@ -769,7 +755,7 @@ function Library:create_ui(config)
         Tab.TextSize = 14
         Tab.BackgroundColor3 = Theme.Group
         Tab.Parent = Tabs
-        Tab.LayoutOrder = self._tab   -- assigned before increment so first tab = 0
+        Tab.LayoutOrder = self._tab
         table.insert(Library._elements, {obj = Tab, prop = "BackgroundColor3", tKey = "Group"})
 
         local UICorner = Instance.new('UICorner')
@@ -854,7 +840,7 @@ function Library:create_ui(config)
         UIPadding_R.PaddingTop = UDim.new(0, 1)
         UIPadding_R.Parent = RightSection
 
-        self._tab += 1   -- increment AFTER assignment so next tab gets next slot
+        self._tab += 1
 
         if first_tab then
             self:update_tabs(Tab)
@@ -1068,13 +1054,10 @@ function Library:create_ui(config)
             UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
             UIListLayout.Parent = Options
 
+            -- FIX: always set Options.Size, module gated on state
             function ModuleManager:refresh_size()
-                if self._state then
-                    Module.Size = UDim2.fromOffset(241, 93 + self._size + self._multiplier)
-                    Options.Size = UDim2.fromOffset(241, self._size + self._multiplier)
-                else
-                    Module.Size = UDim2.fromOffset(241, 93)
-                end
+                Module.Size = UDim2.fromOffset(241, self._state and (93 + self._size + self._multiplier) or 93)
+                Options.Size = UDim2.fromOffset(241, self._size + self._multiplier)
             end
 
             function ModuleManager:change_state(state)
@@ -1162,7 +1145,6 @@ function Library:create_ui(config)
                 KeybindText.Text = 'None'
             end
 
-            -- FIX #2: keybind choose — clean up both connections in all exit paths
             Keybind.MouseButton1Click:Connect(function()
                 if Library._choosing_keybind then return end
                 Library._choosing_keybind = true
@@ -1225,7 +1207,7 @@ function Library:create_ui(config)
                 local CheckboxManager = { _state = false }
 
                 if self._size == 0 then self._size = 11 end
-                self._size += 24
+                self._size += 20
                 ModuleManager:refresh_size()
 
                 local Checkbox = Instance.new("TextButton")
@@ -1235,7 +1217,7 @@ function Library:create_ui(config)
                 Checkbox.AutoButtonColor = false
                 Checkbox.BackgroundTransparency = 1
                 Checkbox.Name = "Checkbox"
-                Checkbox.Size = UDim2.new(0, 207, 0, 18)
+                Checkbox.Size = UDim2.new(0, 207, 0, 15)
                 Checkbox.BorderSizePixel = 0
                 Checkbox.TextSize = 14
                 Checkbox.Parent = Options
@@ -1353,7 +1335,7 @@ function Library:create_ui(config)
                 local SliderManager = {}
 
                 if self._size == 0 then self._size = 11 end
-                self._size += 32
+                self._size += 27
                 ModuleManager:refresh_size()
 
                 local Slider = Instance.new('TextButton')
@@ -1364,7 +1346,7 @@ function Library:create_ui(config)
                 Slider.AutoButtonColor = false
                 Slider.BackgroundTransparency = 1
                 Slider.Name = 'Slider'
-                Slider.Size = UDim2.new(0, 207, 0, 26)
+                Slider.Size = UDim2.new(0, 207, 0, 22)
                 Slider.BorderSizePixel = 0
                 Slider.Parent = Options
                 Slider.LayoutOrder = LayoutOrderModule
@@ -1504,7 +1486,7 @@ function Library:create_ui(config)
                 local TextboxManager = { _text = "" }
 
                 if self._size == 0 then self._size = 11 end
-                self._size += 42
+                self._size += 32
                 ModuleManager:refresh_size()
 
                 local Label = Instance.new('TextLabel')
@@ -1575,7 +1557,7 @@ function Library:create_ui(config)
 
                 if not settings.Order then
                     if self._size == 0 then self._size = 11 end
-                    self._size += 48
+                    self._size += 44
                     ModuleManager:refresh_size()
                 end
 
@@ -1586,7 +1568,7 @@ function Library:create_ui(config)
                 Dropdown.AutoButtonColor = false
                 Dropdown.BackgroundTransparency = 1
                 Dropdown.Name = 'Dropdown'
-                Dropdown.Size = UDim2.new(0, 207, 0, 44)
+                Dropdown.Size = UDim2.new(0, 207, 0, 39)
                 Dropdown.BorderSizePixel = 0
                 Dropdown.TextSize = 14
                 Dropdown.Parent = Options
@@ -1616,7 +1598,7 @@ function Library:create_ui(config)
                 Box.BackgroundTransparency = 0.2
                 Box.Position = UDim2.new(0.5, 0, 1.250, 0)
                 Box.Name = 'Box'
-                Box.Size = UDim2.new(0, 207, 0, 26)
+                Box.Size = UDim2.new(0, 207, 0, 22)
                 Box.BorderSizePixel = 0
                 Box.BackgroundColor3 = Theme.Control
                 Box.Parent = TextLabel
@@ -1632,7 +1614,7 @@ function Library:create_ui(config)
                 Header.BackgroundTransparency = 1
                 Header.Position = UDim2.new(0.5, 0, 0, 0)
                 Header.Name = 'Header'
-                Header.Size = UDim2.new(0, 207, 0, 26)
+                Header.Size = UDim2.new(0, 207, 0, 22)
                 Header.BorderSizePixel = 0
                 Header.Parent = Box
                 Header.ZIndex = 2
@@ -1761,10 +1743,10 @@ function Library:create_ui(config)
                     ModuleManager:refresh_size()
 
                     TweenService:Create(Dropdown, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                        Size = UDim2.fromOffset(207, 44 + (self._state and self._size or 0))
+                        Size = UDim2.fromOffset(207, 39 + (self._state and self._size or 0))
                     }):Play()
                     TweenService:Create(Box, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                        Size = UDim2.fromOffset(207, 26 + (self._state and self._size or 0))
+                        Size = UDim2.fromOffset(207, 22 + (self._state and self._size or 0))
                     }):Play()
                     TweenService:Create(Arrow, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         Rotation = self._state and 180 or 0
@@ -2039,11 +2021,11 @@ function Library:create_ui(config)
                 local checked = false
                 LayoutOrderModule = LayoutOrderModule + 1
                 if self._size == 0 then self._size = 11 end
-                self._size += 24
+                self._size += 20
                 ModuleManager:refresh_size()
 
                 local FeatureContainer = Instance.new("Frame")
-                FeatureContainer.Size = UDim2.new(0, 207, 0, 18)
+                FeatureContainer.Size = UDim2.new(0, 207, 0, 16)
                 FeatureContainer.BackgroundTransparency = 1
                 FeatureContainer.Parent = Options
                 FeatureContainer.LayoutOrder = LayoutOrderModule
@@ -2056,7 +2038,7 @@ function Library:create_ui(config)
                 local FeatureButton = Instance.new("TextButton")
                 FeatureButton.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
                 FeatureButton.TextSize = 11
-                FeatureButton.Size = UDim2.new(1, -35, 0, 18)
+                FeatureButton.Size = UDim2.new(1, -35, 0, 16)
                 FeatureButton.BackgroundColor3 = Theme.Control
                 FeatureButton.TextColor3 = Theme.Text
                 FeatureButton.Text = "    " .. (settings.title or "Feature")
@@ -2072,7 +2054,7 @@ function Library:create_ui(config)
                 FeatureCorner.Parent = FeatureButton
 
                 local RightContainer = Instance.new("Frame")
-                RightContainer.Size = UDim2.new(0, 45, 0, 18)
+                RightContainer.Size = UDim2.new(0, 45, 0, 16)
                 RightContainer.BackgroundTransparency = 1
                 RightContainer.Parent = FeatureContainer
 
@@ -2212,8 +2194,9 @@ function Library:create_ui(config)
         return TabManager
     end
 
-    -- FIX #2: minimize keybind — local connections, clean cancellation
+    -- FIX: visibility handler reads current bind, ignores processed input
     Connections['library_visiblity'] = UserInputService.InputBegan:Connect(function(input, process)
+        if process then return end
         local key = Library._config._keybinds['Minimize_Keybind'] or "Enum.KeyCode.Insert"
         if tostring(input.KeyCode) ~= key then return end
         self._ui_open = not self._ui_open
@@ -2237,11 +2220,14 @@ function Library:create_ui(config)
 end
 
 -- ── build_interface_tab ───────────────────────────────────────────────────────
--- FIX #1: this function must be called AFTER all user create_tab calls.
--- It creates its own tab via create_tab so the LayoutOrder lands at the end.
+-- FIX #1: force Interface tab to render LAST regardless of call order.
+-- Call this AFTER all user create_tab calls for expected behavior.
 function Library:build_interface_tab()
-    -- FIX #5 / #6: Interface tab created last — LayoutOrder = self._tab at call time
+    local saved_tab = self._tab
+    self._tab = 9999
     local InterfaceTab = self:create_tab('Interface', 'rbxassetid://94381583400007')
+    self._tab = saved_tab + 1
+
     local Container = self._container
     local Handler = self._handler
 
@@ -2398,7 +2384,6 @@ function Library:build_interface_tab()
                 self:Notify({title = 'Config', text = 'Enter a valid name.', duration = 3})
                 return
             end
-            -- FIX #4: save full config (includes Theme_ and Background_ flags)
             Config:save('Configs/'..name, Library._config)
             config_dropdown:refresh(get_configs())
             config_dropdown:update(name)
@@ -2415,33 +2400,60 @@ function Library:build_interface_tab()
                 return
             end
             local loaded = Config:load('Configs/'..name, { _flags = {}, _keybinds = {} })
-            -- FIX #5: merge loaded flags into current config; don't wipe unrelated keys
+
+            -- FIX #5: wipe registry-known flags, then apply loaded. Prevents bleed.
+            for flag in pairs(Library._flag_registry or {}) do
+                Library._config._flags[flag] = nil
+            end
+            -- also wipe theme/background keys so a profile without them resets to default
+            for key in pairs(DefaultTheme) do
+                Library._config._flags['Theme_'..key] = nil
+            end
+            Library._config._flags['Background_Image'] = nil
+            Library._config._flags['Background_Transparency'] = nil
+            Library._config._flags['Background_Image_Id'] = nil
+            Library._config._flags['Background_Preset'] = nil
+            Library._config._flags['Background_Image_Transparency'] = nil
+            Library._config._flags['Background_Module_Transparency'] = nil
+            Library._config._flags['UI_Container_Transparency'] = nil
+            Library._config._flags['UI_Notif_Opacity'] = nil
+            Library._config._flags['UI_Notif_Side'] = nil
+            Library._config._flags['Minimize_Keybind'] = nil
+
             for k, v in pairs(loaded._flags or {}) do
                 Library._config._flags[k] = v
             end
-            -- keybinds load as-is from the profile
-            Library._config._keybinds = loaded._keybinds or Library._config._keybinds
+            Library._config._keybinds = loaded._keybinds or {}
 
-            -- apply all registered flags
+            -- re-apply every registered flag
             for flag, func in pairs(Library._flag_registry or {}) do
                 if Library._config._flags[flag] ~= nil then
                     pcall(func, Library._config._flags[flag])
                 end
             end
 
-            -- FIX #4: restore theme colors from profile
-            for key, color in pairs(DefaultTheme) do
+            -- restore theme colors
+            for key, _ in pairs(DefaultTheme) do
                 local saved = Library._config._flags['Theme_'..key]
                 if saved then
                     Library:SetColor(key, Library:hexToRGB(saved))
                 end
             end
 
-            -- FIX #4: restore background from profile
+            -- restore background
             local saved_bg = Library._config._flags['Background_Image']
-            if typeof(saved_bg) == "string" then
+            if typeof(saved_bg) == "string" and saved_bg ~= '' then
                 Library:SetBackground(saved_bg, Library._config._flags['Background_Transparency'] or 0.5)
                 set_background_image(saved_bg)
+            end
+
+            -- restore notification side/opacity live
+            if Library._config._flags['UI_Notif_Side'] then
+                Library._notif_side = Library._config._flags['UI_Notif_Side']
+                UpdateNotificationPosition()
+            end
+            if Library._config._flags['UI_Notif_Opacity'] then
+                Library._notif_opacity = math.clamp(Library._config._flags['UI_Notif_Opacity'] / 100, 0, 1)
             end
 
             self:Notify({title = 'Config', text = 'Loaded '..name, duration = 3})
@@ -2677,7 +2689,8 @@ function Library:build_interface_tab()
         local function close_popup()
             Popup.Visible = false
             for _, swatch in Color_Swatches do
-                swatch.UIStroke.Transparency = 0.5
+                local stroke = swatch:FindFirstChildOfClass('UIStroke')
+                if stroke then stroke.Transparency = 0.5 end
             end
         end
 
@@ -2688,7 +2701,8 @@ function Library:build_interface_tab()
             end
             Selected_Color_Target = target
             for name, object in Color_Swatches do
-                object.UIStroke.Transparency = name == target and 0 or 0.5
+                local stroke = object:FindFirstChildOfClass('UIStroke')
+                if stroke then stroke.Transparency = name == target and 0 or 0.5 end
             end
             local scale = Handler.AbsoluteSize.X / 698
             local relative_x = (swatch.AbsolutePosition.X - Handler.AbsolutePosition.X) / scale
@@ -2873,7 +2887,6 @@ function Library:build_interface_tab()
             set_background_image(source)
             if Asset_Input then Asset_Input.Text = source end
             Library._config._flags['Background_Image_Id'] = source
-            -- FIX #4: persist resolved source through SetBackground so it survives reload
             self:SetBackground(resolve_background(source), self._background.ImageTransparency)
         end,
     })
@@ -2998,17 +3011,22 @@ function Library:build_interface_tab()
         end,
     })
 
-    -- FIX #3: opacity slider writes directly to _notif_opacity (0–1 range).
-    -- No gradient fights it — notifications use this value on spawn.
+    -- FIX #3: opacity slider drives live notifications, clamped 0..1
     notif_module:create_slider({
         title = 'Opacity',
         flag = 'UI_Notif_Opacity',
         minimum_value = 0,
         maximum_value = 100,
-        value = 0,
+        value = 5,
         round_number = true,
         callback = function(value)
-            Library._notif_opacity = value / 100
+            Library._notif_opacity = math.clamp(value / 100, 0, 1)
+            for _, notif in ipairs(NotificationContainer:GetChildren()) do
+                local inner = notif:FindFirstChild("InnerFrame")
+                if inner then
+                    inner.BackgroundTransparency = Library._notif_opacity
+                end
+            end
         end,
     })
 
@@ -3090,6 +3108,9 @@ function Library:build_interface_tab()
     MinimizeKeyText.Parent = MinimizeKeyBox
     table.insert(self._elements, {obj = MinimizeKeyText, prop = "TextColor3", tKey = "Text"})
 
+    -- FIX #2: per-widget listening flag, defer listener so opening click is not captured
+    local MinimizeListening = false
+
     local function refresh_minimize_text()
         local saved = Library._config._keybinds['Minimize_Keybind']
         if saved then
@@ -3100,43 +3121,46 @@ function Library:build_interface_tab()
     end
     refresh_minimize_text()
 
-    -- FIX #2: minimize key bind — local connections, no global Connections slots
-    -- that could conflict with module keybind choose
     MinimizeKeyBox.MouseButton1Click:Connect(function()
-        if Library._choosing_keybind then return end
-        Library._choosing_keybind = true
+        if MinimizeListening then return end
+        MinimizeListening = true
         MinimizeKeyText.Text = '...'
         MinimizeKeyBox.BackgroundColor3 = Theme.ControlHover
 
         local bind_conn, cancel_conn
 
-        local function finish_minimize_bind()
-            Library._choosing_keybind = false
+        local function stop_listening()
+            MinimizeListening = false
             MinimizeKeyBox.BackgroundColor3 = Theme.Control
             refresh_minimize_text()
             if bind_conn then bind_conn:Disconnect(); bind_conn = nil end
             if cancel_conn then cancel_conn:Disconnect(); cancel_conn = nil end
         end
 
-        bind_conn = UserInputService.InputBegan:Connect(function(input, process)
-            if process then return end
-            if input.KeyCode == Enum.KeyCode.Unknown then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then return end
+        task.defer(function()
+            bind_conn = UserInputService.InputBegan:Connect(function(input, process)
+                if process then return end
+                if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+                if input.KeyCode == Enum.KeyCode.Unknown then return end
 
-            if input.KeyCode == Enum.KeyCode.Backspace then
-                Library._config._keybinds['Minimize_Keybind'] = nil
-            else
-                Library._config._keybinds['Minimize_Keybind'] = tostring(input.KeyCode)
-            end
-            Config:save(tostring(game.PlaceId), Library._config)
-            finish_minimize_bind()
-        end)
+                if input.KeyCode == Enum.KeyCode.Backspace then
+                    Library._config._keybinds['Minimize_Keybind'] = nil
+                    Library._keybind_list['Minimize_Keybind'] = nil
+                else
+                    Library._config._keybinds['Minimize_Keybind'] = tostring(input.KeyCode)
+                    Library._keybind_list['Minimize_Keybind'] = 'Toggle UI'
+                end
 
-        cancel_conn = UserInputService.InputBegan:Connect(function(input, process)
-            if process then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                finish_minimize_bind()
-            end
+                Config:save(tostring(game.PlaceId), Library._config)
+                stop_listening()
+            end)
+
+            cancel_conn = UserInputService.InputBegan:Connect(function(input, process)
+                if process then return end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    stop_listening()
+                end
+            end)
         end)
     end)
 
@@ -3303,7 +3327,6 @@ function Library:build_interface_tab()
     FpsLabel.TextSize = 12
     table.insert(Library._elements, {obj = FpsLabel, prop = "TextColor3", tKey = "TextDim"})
 
-    -- drag: graph panel
     local graphDragging, graphDragStart, graphStartPos = false, nil, nil
     GraphPanel.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -3322,7 +3345,6 @@ function Library:build_interface_tab()
         end
     end)
 
-    -- drag: fps panel
     local fpsDragging, fpsDragStart, fpsStartPos = false, nil, nil
     FpsPanel.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -3498,10 +3520,8 @@ function Library:build_interface_tab()
 
         local validBinds = {}
         for flag, key in pairs(Library._config._keybinds) do
-            if flag ~= 'Minimize_Keybind' then
-                local title = Library._keybind_list[flag] or flag
-                table.insert(validBinds, {flag = flag, title = title, key = string.gsub(tostring(key), "Enum.KeyCode.", "")})
-            end
+            local title = Library._keybind_list[flag] or flag
+            table.insert(validBinds, {flag = flag, title = title, key = string.gsub(tostring(key), "Enum.KeyCode.", "")})
         end
 
         table.sort(validBinds, function(a, b) return a.title < b.title end)
@@ -3563,7 +3583,7 @@ function Library:build_interface_tab()
             keybindUpdateTimer = 0
             local currentCount = 0
             for flag, key in pairs(Library._config._keybinds) do
-                if flag ~= 'Minimize_Keybind' then currentCount += 1 end
+                currentCount += 1
             end
             if currentCount ~= lastBindCount then RefreshKeybindOverlay() end
         end
