@@ -1,3 +1,18 @@
+-- ============================================================
+-- CHANGED FUNCTIONS vs previous build:
+--  1. ModuleManager:refresh_size        (module sizing fix)
+--  2. ModuleManager:change_state        (uses refresh_size)
+--  3. ModuleManager:connect_keybind     (module keybind)
+--  4. ModuleManager:scale_keybind       (module keybind)
+--  5. Header.InputBegan handler         (right-click choose key)
+--  6. DropdownManager:unfold_settings   (uses refresh_size)
+--  7. Library.SendNotification          (IceLib-style layout)
+--  8. resolve_background                (URL -> file -> asset)
+--  9. Settings module additions         (Minimize_Keybind, Hide on Minimize)
+-- 10. library_visiblity handler         (custom minimize key)
+-- 11. Keybind list overlay              (Settings module)
+-- ============================================================
+
 local GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -70,15 +85,12 @@ local Library = {
     _keybind_list = {},
     _notif_side = "Right",
     _notif_opacity = 0,
-    _shadow = nil,
-    _shadow_scale = nil
+    _minimize_key = nil
 }
 Library.__index = Library
 
-local ScreenGuiName = "GameUI"
-
 local SecureScreenGui = Instance.new('ScreenGui')
-SecureScreenGui.Name = ScreenGuiName
+SecureScreenGui.Name = "GameUI"
 SecureScreenGui.Parent = CoreGui
 SecureScreenGui.ResetOnSpawn = false
 SecureScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -134,9 +146,7 @@ local Config = setmetatable({
             if not flags then return config end
             return HttpService:JSONDecode(flags)
         end)
-        if not success_load then
-            return config
-        end
+        if not success_load then return config end
         if not result then
             result = { _flags = {}, _keybinds = {}, _library = {} }
         end
@@ -144,7 +154,7 @@ local Config = setmetatable({
     end
 }, Config)
 
-function Library.new(config: table)
+function Library.new(config)
     local self = setmetatable({
         _loaded = false, _tab = 0,
     }, Library)
@@ -152,8 +162,8 @@ function Library.new(config: table)
     Library._config = Config:load(game.GameId, { _flags = {}, _keybinds = {}, _library = {} })
 
     local currentconfig = config or {
-        title = config and config.title or "Achaotic",
-        PrimaryColor = config and config.PrimaryColor or Color3.fromRGB(120, 220, 235),
+        title = "Achaotic",
+        PrimaryColor = Color3.fromRGB(120, 220, 235),
     }
     
     Theme.Accent = currentconfig.PrimaryColor
@@ -161,56 +171,54 @@ function Library.new(config: table)
     return self
 end
 
+-- ============================================================
+-- FIX #7: IceLib-style notification system
+-- ============================================================
 local NotificationContainer = Instance.new("Frame")
 NotificationContainer.Name = "NotificationContainer"
 NotificationContainer.Size = UDim2.new(0, 300, 0, 0)
-NotificationContainer.Position = UDim2.new(0.8, 0, 0, 10)
 NotificationContainer.BackgroundTransparency = 1
 NotificationContainer.ClipsDescendants = false
 NotificationContainer.Parent = SecureScreenGui
 NotificationContainer.AutomaticSize = Enum.AutomaticSize.Y
+NotificationContainer.AnchorPoint = Vector2.new(1, 1)
+NotificationContainer.Position = UDim2.new(1, -22, 1, -22)
 
 local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.FillDirection = Enum.FillDirection.Vertical
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.Padding = UDim.new(0, 8)
+UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 UIListLayout.Parent = NotificationContainer
 
 local function UpdateNotificationPosition()
     if Library._notif_side == "Left" then
         NotificationContainer.AnchorPoint = Vector2.new(0, 1)
         NotificationContainer.Position = UDim2.new(0, 22, 1, -22)
-        UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
     else
         NotificationContainer.AnchorPoint = Vector2.new(1, 1)
         NotificationContainer.Position = UDim2.new(1, -22, 1, -22)
-        UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
     end
 end
 UpdateNotificationPosition()
 
 function Library.SendNotification(settings)
     local Notification = Instance.new("Frame")
-    Notification.Size = UDim2.new(1, 0, 0, 60)
+    Notification.Size = UDim2.new(1, 0, 0, 62)
     Notification.BackgroundTransparency = 1
     Notification.BorderSizePixel = 0
     Notification.Name = "Notification"
     Notification.Parent = NotificationContainer
-    Notification.AutomaticSize = Enum.AutomaticSize.Y
-
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 6)
-    UICorner.Parent = Notification
 
     local InnerFrame = Instance.new("Frame")
-    InnerFrame.Size = UDim2.new(1, 0, 0, 60)
-    InnerFrame.Position = UDim2.new(0, 0, 0, 0)
+    InnerFrame.Size = UDim2.new(1, 0, 1, 0)
+    InnerFrame.Position = UDim2.new(Library._notif_side == "Left" and 1 or -1, -320, 0, 0)
     InnerFrame.BackgroundColor3 = Theme.Group
     InnerFrame.BackgroundTransparency = Library._notif_opacity
     InnerFrame.BorderSizePixel = 0
     InnerFrame.Name = "InnerFrame"
+    InnerFrame.ZIndex = 1
     InnerFrame.Parent = Notification
-    InnerFrame.AutomaticSize = Enum.AutomaticSize.Y
     table.insert(Library._elements, {obj = InnerFrame, prop = "BackgroundColor3", tKey = "Group"})
 
     local InnerGradient = Instance.new("UIGradient")
@@ -219,19 +227,19 @@ function Library.SendNotification(settings)
         ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
     }
     InnerGradient.Transparency = NumberSequence.new{
-        NumberSequenceKeypoint.new(0, 0.9),
+        NumberSequenceKeypoint.new(0, 0.92),
         NumberSequenceKeypoint.new(1, 1)
     }
     InnerGradient.Rotation = 90
     InnerGradient.Parent = InnerFrame
 
     local InnerUICorner = Instance.new("UICorner")
-    InnerUICorner.CornerRadius = UDim.new(0, 6)
+    InnerUICorner.CornerRadius = UDim.new(0, 8)
     InnerUICorner.Parent = InnerFrame
 
     local InnerStroke = Instance.new("UIStroke")
     InnerStroke.Color = Theme.GroupStroke
-    InnerStroke.Transparency = 0.4
+    InnerStroke.Transparency = 0.5
     InnerStroke.Thickness = 1
     InnerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     InnerStroke.Parent = InnerFrame
@@ -251,55 +259,49 @@ function Library.SendNotification(settings)
     AccentCorner.Parent = Accent
 
     local Title = Instance.new("TextLabel")
-    Title.Text = settings.title or "Notification Title"
+    Title.Text = settings.title or "Notification"
     Title.TextColor3 = Theme.Text
     Title.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-    Title.TextSize = 14
-    Title.Size = UDim2.new(1, -25, 0, 20)
-    Title.Position = UDim2.new(0, 15, 0, 6)
+    Title.TextSize = 15
+    Title.Size = UDim2.new(1, -25, 0, 18)
+    Title.Position = UDim2.new(0, 15, 0, 8)
     Title.BackgroundTransparency = 1
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.TextYAlignment = Enum.TextYAlignment.Center
-    Title.TextWrapped = true
-    Title.AutomaticSize = Enum.AutomaticSize.Y
+    Title.TextTruncate = Enum.TextTruncate.AtEnd
+    Title.ZIndex = 2
     Title.Parent = InnerFrame
     table.insert(Library._elements, {obj = Title, prop = "TextColor3", tKey = "Text"})
 
     local Body = Instance.new("TextLabel")
-    Body.Text = settings.text or "This is the body of the notification."
+    Body.Text = settings.text or ""
     Body.TextColor3 = Theme.TextDim
     Body.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
     Body.TextSize = 12
-    Body.Size = UDim2.new(1, -25, 0, 30)
-    Body.Position = UDim2.new(0, 15, 0, 26)
+    Body.Size = UDim2.new(1, -25, 0, 14)
+    Body.Position = UDim2.new(0, 15, 0, 32)
     Body.BackgroundTransparency = 1
     Body.TextXAlignment = Enum.TextXAlignment.Left
-    Body.TextYAlignment = Enum.TextYAlignment.Top
-    Body.TextWrapped = true
-    Body.AutomaticSize = Enum.AutomaticSize.Y
+    Body.TextYAlignment = Enum.TextYAlignment.Center
+    Body.TextTruncate = Enum.TextTruncate.AtEnd
+    Body.ZIndex = 2
     Body.Parent = InnerFrame
     table.insert(Library._elements, {obj = Body, prop = "TextColor3", tKey = "TextDim"})
 
     task.spawn(function()
-        task.wait(0.1)
-        local totalHeight = Title.TextBounds.Y + Body.TextBounds.Y + 12
-        InnerFrame.Size = UDim2.new(1, 0, 0, totalHeight)
-    end)
-
-    task.spawn(function()
-        local tweenIn = TweenService:Create(InnerFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-            Position = UDim2.new(0, 0, 0, 10 + NotificationContainer.Size.Y.Offset)
+        local tweenIn = TweenService:Create(InnerFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0, 0, 0, 0)
         })
         tweenIn:Play()
-        local duration = settings.duration or 5
-        task.wait(duration)
-        local tweenOut = TweenService:Create(InnerFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
-            Position = UDim2.new(1, 310, 0, 10 + NotificationContainer.Size.Y.Offset)
+
+        task.wait(settings.duration or 5)
+
+        local tweenOut = TweenService:Create(InnerFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+            Position = UDim2.new(Library._notif_side == "Left" and 1 or -1, -320, 0, 0)
         })
         tweenOut:Play()
-        tweenOut.Completed:Connect(function()
-            Notification:Destroy()
-        end)
+        tweenOut.Completed:Wait()
+        Notification:Destroy()
     end)
 end
 
@@ -375,7 +377,7 @@ function Library:SetBackground(source, transparency)
     Config:save(game.GameId, Library._config)
 end
 
-function Library:create_ui(config: table)
+function Library:create_ui(config)
     local Container = Instance.new('Frame')
     Container.ClipsDescendants = true
     Container.BorderColor3 = Color3.fromRGB(0, 0, 0)
@@ -401,7 +403,6 @@ function Library:create_ui(config: table)
     ShadowHolder.ZIndex = 0
     ShadowHolder.Parent = SecureScreenGui
     ShadowHolder.Visible = false
-    self._shadow = ShadowHolder
 
     local ShadowOuter = Instance.new('ImageLabel')
     ShadowOuter.Name = 'SoftShadowOuter'
@@ -576,7 +577,6 @@ function Library:create_ui(config: table)
     
     local ShadowScale = Instance.new('UIScale')
     ShadowScale.Parent = ShadowHolder
-    self._shadow_scale = ShadowScale
     
     self._ui = SecureScreenGui
 
@@ -636,6 +636,27 @@ function Library:create_ui(config: table)
             TweenService:Create(Container, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 Size = UDim2.fromOffset(104.5, 52)
             }):Play()
+        end
+    end
+
+    function self:set_gui_visibility(state)
+        if not self._ui then return end
+        if state then
+            self._ui.Enabled = true
+            Container.Size = UDim2.fromOffset(0, 0)
+            ShadowHolder.Visible = true
+            TweenService:Create(Container, TweenInfo.new(0.35, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
+                Size = UDim2.fromOffset(698, 479)
+            }):Play()
+        else
+            local t = TweenService:Create(Container, TweenInfo.new(0.25, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {
+                Size = UDim2.fromOffset(0, 0)
+            })
+            t:Play()
+            t.Completed:Once(function()
+                self._ui.Enabled = false
+                ShadowHolder.Visible = false
+            end)
         end
     end
 
@@ -956,6 +977,61 @@ function Library:create_ui(config: table)
             UICorner.CornerRadius = UDim.new(1, 0)
             UICorner.Parent = Circle
             
+            -- ============================================================
+            -- FIX #3/#4/#5: Module keybind UI (right-click to bind)
+            -- ============================================================
+            local Keybind = Instance.new('TextButton')
+            Keybind.Name = 'Keybind'
+            Keybind.AutoButtonColor = false
+            Keybind.Text = ''
+            Keybind.BackgroundTransparency = 0.2
+            Keybind.Position = UDim2.new(0.150, 0, 0.735, 0)
+            Keybind.Size = UDim2.new(0, 33, 0, 15)
+            Keybind.BorderSizePixel = 0
+            Keybind.BackgroundColor3 = Theme.Control
+            Keybind.Parent = Header
+            table.insert(Library._elements, {obj = Keybind, prop = "BackgroundColor3", tKey = "Control"})
+
+            local KeybindCorner = Instance.new('UICorner')
+            KeybindCorner.CornerRadius = UDim.new(0, 3)
+            KeybindCorner.Parent = Keybind
+
+            local KeybindStroke = Instance.new('UIStroke')
+            KeybindStroke.Color = Theme.GroupStroke
+            KeybindStroke.Transparency = 0.5
+            KeybindStroke.Thickness = 1
+            KeybindStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            KeybindStroke.Parent = Keybind
+            table.insert(Library._elements, {obj = KeybindStroke, prop = "Color", tKey = "GroupStroke"})
+
+            local KeybindText = Instance.new('TextLabel')
+            KeybindText.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+            KeybindText.TextColor3 = Theme.Text
+            KeybindText.Text = 'None'
+            KeybindText.AnchorPoint = Vector2.new(0.5, 0.5)
+            KeybindText.Size = UDim2.new(1, -6, 1, 0)
+            KeybindText.BackgroundTransparency = 1
+            KeybindText.TextXAlignment = Enum.TextXAlignment.Center
+            KeybindText.Position = UDim2.new(0.5, 0, 0.5, 0)
+            KeybindText.BorderSizePixel = 0
+            KeybindText.TextSize = 10
+            KeybindText.Parent = Keybind
+            table.insert(Library._elements, {obj = KeybindText, prop = "TextColor3", tKey = "Text"})
+
+            local ModuleIcon = Instance.new('ImageLabel')
+            ModuleIcon.Name = 'Icon'
+            ModuleIcon.ImageColor3 = Theme.Accent
+            ModuleIcon.ScaleType = Enum.ScaleType.Fit
+            ModuleIcon.ImageTransparency = 0.3
+            ModuleIcon.AnchorPoint = Vector2.new(0, 0.5)
+            ModuleIcon.Image = 'rbxassetid://79095934438045'
+            ModuleIcon.BackgroundTransparency = 1
+            ModuleIcon.Position = UDim2.new(0.071, 0, 0.750, 0)
+            ModuleIcon.Size = UDim2.new(0, 15, 0, 15)
+            ModuleIcon.BorderSizePixel = 0
+            ModuleIcon.Parent = Header
+            table.insert(Library._elements, {obj = ModuleIcon, prop = "ImageColor3", tKey = "Accent"})
+
             local Divider = Instance.new('Frame')
             Divider.AnchorPoint = Vector2.new(0.5, 0)
             Divider.BackgroundTransparency = 0.5
@@ -996,6 +1072,9 @@ function Library:create_ui(config: table)
             UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
             UIListLayout.Parent = Options
 
+            -- ============================================================
+            -- FIX #1: refresh_size recomputes module/options height
+            -- ============================================================
             function ModuleManager:refresh_size()
                 if self._state then
                     Module.Size = UDim2.fromOffset(241, 93 + self._size + self._multiplier)
@@ -1008,27 +1087,27 @@ function Library:create_ui(config: table)
             function ModuleManager:change_state(state)
                 self._state = state
                 if self._state then
-                    TweenService:Create(Module, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    TweenService:Create(Module, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         Size = UDim2.fromOffset(241, 93 + self._size + self._multiplier)
                     }):Play()
-                    TweenService:Create(Options, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    TweenService:Create(Options, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         Size = UDim2.fromOffset(241, self._size + self._multiplier)
                     }):Play()
-                    TweenService:Create(Toggle, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    TweenService:Create(Toggle, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         BackgroundColor3 = Theme.Accent
                     }):Play()
-                    TweenService:Create(Circle, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    TweenService:Create(Circle, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         BackgroundColor3 = Theme.Group,
                         Position = UDim2.fromScale(0.53, 0.5)
                     }):Play()
                 else
-                    TweenService:Create(Module, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    TweenService:Create(Module, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         Size = UDim2.fromOffset(241, 93)
                     }):Play()
-                    TweenService:Create(Toggle, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    TweenService:Create(Toggle, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         BackgroundColor3 = Theme.Background
                     }):Play()
-                    TweenService:Create(Circle, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    TweenService:Create(Circle, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         BackgroundColor3 = Theme.TextDim,
                         Position = UDim2.fromScale(0, 0.5)
                     }):Play()
@@ -1036,6 +1115,31 @@ function Library:create_ui(config: table)
                 Library._config._flags[settings.flag] = self._state
                 Config:save(game.GameId, Library._config)
                 settings.callback(self._state)
+            end
+
+            function ModuleManager:connect_keybind()
+                if not Library._config._keybinds[settings.flag] then return end
+                Library._keybind_list[settings.flag] = settings.title or "Module"
+                Connections[settings.flag..'_keybind'] = UserInputService.InputBegan:Connect(function(input, process)
+                    if process then return end
+                    if tostring(input.KeyCode) ~= Library._config._keybinds[settings.flag] then return end
+                    self:change_state(not self._state)
+                end)
+            end
+
+            function ModuleManager:scale_keybind(empty)
+                if Library._config._keybinds[settings.flag] and not empty then
+                    local keybind_string = string.gsub(tostring(Library._config._keybinds[settings.flag]), 'Enum.KeyCode.', '')
+                    local font_params = Instance.new('GetTextBoundsParams')
+                    font_params.Text = keybind_string
+                    font_params.Font = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold)
+                    font_params.Size = 10
+                    font_params.Width = 10000
+                    local font_size = TextService:GetTextBoundsAsync(font_params)
+                    Keybind.Size = UDim2.fromOffset(math.max(33, font_size.X + 12), 15)
+                else
+                    Keybind.Size = UDim2.fromOffset(33, 15)
+                end
             end
 
             if Library:flag_type(settings.flag, 'boolean') then
@@ -1057,6 +1161,63 @@ function Library:create_ui(config: table)
                 ModuleManager:change_state(state)
             end
 
+            if Library._config._keybinds[settings.flag] then
+                KeybindText.Text = string.gsub(tostring(Library._config._keybinds[settings.flag]), 'Enum.KeyCode.', '')
+                ModuleManager:connect_keybind()
+                ModuleManager:scale_keybind()
+            else
+                KeybindText.Text = 'None'
+            end
+
+            Keybind.MouseButton1Click:Connect(function()
+                if Library._choosing_keybind then return end
+                Library._choosing_keybind = true
+                KeybindText.Text = '...'
+                Keybind.BackgroundColor3 = Theme.ControlHover
+
+                local function cancel_choose()
+                    Library._choosing_keybind = false
+                    Keybind.BackgroundColor3 = Theme.Control
+                    if Library._config._keybinds[settings.flag] then
+                        KeybindText.Text = string.gsub(tostring(Library._config._keybinds[settings.flag]), 'Enum.KeyCode.', '')
+                    else
+                        KeybindText.Text = 'None'
+                    end
+                    if Connections['keybind_choose_start'] then
+                        Connections['keybind_choose_start']:Disconnect()
+                        Connections['keybind_choose_start'] = nil
+                    end
+                end
+
+                Connections['keybind_choose_start'] = UserInputService.InputBegan:Connect(function(input, process)
+                    if process then return end
+                    if input.KeyCode == Enum.KeyCode.Unknown then return end
+
+                    if input.KeyCode == Enum.KeyCode.Backspace then
+                        Library._config._keybinds[settings.flag] = nil
+                        Library._keybind_list[settings.flag] = nil
+                        if Connections[settings.flag..'_keybind'] then
+                            Connections[settings.flag..'_keybind']:Disconnect()
+                            Connections[settings.flag..'_keybind'] = nil
+                        end
+                        cancel_choose()
+                        Config:save(game.GameId, Library._config)
+                        return
+                    end
+
+                    Library._config._keybinds[settings.flag] = tostring(input.KeyCode)
+                    Library._keybind_list[settings.flag] = settings.title or "Module"
+                    if Connections[settings.flag..'_keybind'] then
+                        Connections[settings.flag..'_keybind']:Disconnect()
+                        Connections[settings.flag..'_keybind'] = nil
+                    end
+                    ModuleManager:connect_keybind()
+                    ModuleManager:scale_keybind()
+                    cancel_choose()
+                    Config:save(game.GameId, Library._config)
+                end)
+            end)
+
             Header.MouseButton1Click:Connect(function()
                 ModuleManager:change_state(not ModuleManager._state)
             end)
@@ -1066,7 +1227,7 @@ function Library:create_ui(config: table)
                 local CheckboxManager = { _state = false }
             
                 if self._size == 0 then self._size = 11 end
-                self._size += 20
+                self._size += 22
                 ModuleManager:refresh_size()
             
                 local Checkbox = Instance.new("TextButton")
@@ -1076,7 +1237,7 @@ function Library:create_ui(config: table)
                 Checkbox.AutoButtonColor = false
                 Checkbox.BackgroundTransparency = 1
                 Checkbox.Name = "Checkbox"
-                Checkbox.Size = UDim2.new(0, 207, 0, 15)
+                Checkbox.Size = UDim2.new(0, 207, 0, 18)
                 Checkbox.BorderSizePixel = 0
                 Checkbox.TextSize = 14
                 Checkbox.Parent = Options
@@ -1129,17 +1290,11 @@ function Library:create_ui(config: table)
                 function CheckboxManager:change_state(state)
                     self._state = state
                     if self._state then
-                        TweenService:Create(Box, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                            BackgroundTransparency = 0.2
-                        }):Play()
-                        TweenService:Create(Fill, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                        TweenService:Create(Fill, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                             Size = UDim2.fromOffset(9, 9)
                         }):Play()
                     else
-                        TweenService:Create(Box, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                            BackgroundTransparency = 0.2
-                        }):Play()
-                        TweenService:Create(Fill, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                        TweenService:Create(Fill, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                             Size = UDim2.fromOffset(0, 0)
                         }):Play()
                     end
@@ -1166,7 +1321,7 @@ function Library:create_ui(config: table)
             function ModuleManager:create_button(settings)
                 LayoutOrderModule = LayoutOrderModule + 1
                 if self._size == 0 then self._size = 11 end
-                self._size += 20
+                self._size += 22
                 ModuleManager:refresh_size()
             
                 local Button = Instance.new("TextButton")
@@ -1178,7 +1333,7 @@ function Library:create_ui(config: table)
                 Button.BackgroundTransparency = 0.2
                 Button.BackgroundColor3 = Theme.Control
                 Button.Name = "Button"
-                Button.Size = UDim2.new(0, 207, 0, 20)
+                Button.Size = UDim2.new(0, 207, 0, 22)
                 Button.BorderSizePixel = 0
                 Button.TextSize = 11
                 Button.Parent = Options
@@ -1200,7 +1355,7 @@ function Library:create_ui(config: table)
                 local SliderManager = {}
 
                 if self._size == 0 then self._size = 11 end
-                self._size += 27
+                self._size += 30
                 ModuleManager:refresh_size()
 
                 local Slider = Instance.new('TextButton')
@@ -1211,7 +1366,7 @@ function Library:create_ui(config: table)
                 Slider.AutoButtonColor = false
                 Slider.BackgroundTransparency = 1
                 Slider.Name = 'Slider'
-                Slider.Size = UDim2.new(0, 207, 0, 22)
+                Slider.Size = UDim2.new(0, 207, 0, 25)
                 Slider.BorderSizePixel = 0
                 Slider.Parent = Options
                 Slider.LayoutOrder = LayoutOrderModule
@@ -1223,7 +1378,7 @@ function Library:create_ui(config: table)
                 TextLabel.TextTransparency = 0.2
                 TextLabel.Text = settings.title
                 TextLabel.Size = UDim2.new(0, 153, 0, 13)
-                TextLabel.Position = UDim2.new(0, 0, 0.050, 0)
+                TextLabel.Position = UDim2.new(0, 0, 0, 0)
                 TextLabel.BackgroundTransparency = 1
                 TextLabel.TextXAlignment = Enum.TextXAlignment.Left
                 TextLabel.Parent = Slider
@@ -1232,7 +1387,7 @@ function Library:create_ui(config: table)
                 local Drag = Instance.new('Frame')
                 Drag.AnchorPoint = Vector2.new(0.5, 1)
                 Drag.BackgroundTransparency = 0.2
-                Drag.Position = UDim2.new(0.5, 0, 0.950, 0)
+                Drag.Position = UDim2.new(0.5, 0, 0.95, 0)
                 Drag.Name = 'Drag'
                 Drag.Size = UDim2.new(0, 207, 0, 4)
                 Drag.BorderSizePixel = 0
@@ -1300,7 +1455,7 @@ function Library:create_ui(config: table)
                     local number_threshold = math.clamp(rounded_number, settings.minimum_value, settings.maximum_value)
                     Library._config._flags[settings.flag] = number_threshold
                     Value.Text = tostring(number_threshold)
-                    TweenService:Create(Fill, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    TweenService:Create(Fill, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         Size = UDim2.fromOffset(slider_size, (Drag.AbsoluteSize.Y ~= 0 and Drag.AbsoluteSize.Y or Drag.Size.Y.Offset))
                     }):Play()
                     settings.callback(number_threshold)
@@ -1351,7 +1506,7 @@ function Library:create_ui(config: table)
                 local TextboxManager = { _text = "" }
             
                 if self._size == 0 then self._size = 11 end
-                self._size += 32
+                self._size += 34
                 ModuleManager:refresh_size()
             
                 local Label = Instance.new('TextLabel')
@@ -1375,15 +1530,15 @@ function Library:create_ui(config: table)
                 Textbox.PlaceholderColor3 = Theme.TextDim
                 Textbox.Text = Library._config._flags[settings.flag] or ""
                 Textbox.Name = 'Textbox'
-                Textbox.Size = UDim2.new(0, 207, 0, 15)
+                Textbox.Size = UDim2.new(0, 207, 0, 17)
                 Textbox.BorderSizePixel = 0
                 Textbox.TextSize = 10
-                Textbox.BackgroundColor3 = Theme.Accent
+                Textbox.BackgroundColor3 = Theme.Control
                 Textbox.BackgroundTransparency = 0.2
                 Textbox.ClearTextOnFocus = false
                 Textbox.Parent = Options
                 Textbox.LayoutOrder = LayoutOrderModule
-                table.insert(Library._elements, {obj = Textbox, prop = "BackgroundColor3", tKey = "Accent"})
+                table.insert(Library._elements, {obj = Textbox, prop = "BackgroundColor3", tKey = "Control"})
                 table.insert(Library._elements, {obj = Textbox, prop = "TextColor3", tKey = "Text"})
                 table.insert(Library._elements, {obj = Textbox, prop = "PlaceholderColor3", tKey = "TextDim"})
                 
@@ -1420,7 +1575,7 @@ function Library:create_ui(config: table)
                 
                 if not settings.Order then
                     if self._size == 0 then self._size = 11 end
-                    self._size += 44
+                    self._size += 46
                     ModuleManager:refresh_size()
                 end
 
@@ -1431,7 +1586,7 @@ function Library:create_ui(config: table)
                 Dropdown.AutoButtonColor = false
                 Dropdown.BackgroundTransparency = 1
                 Dropdown.Name = 'Dropdown'
-                Dropdown.Size = UDim2.new(0, 207, 0, 39)
+                Dropdown.Size = UDim2.new(0, 207, 0, 41)
                 Dropdown.BorderSizePixel = 0
                 Dropdown.TextSize = 14
                 Dropdown.Parent = Options
@@ -1459,11 +1614,11 @@ function Library:create_ui(config: table)
                 Box.BackgroundTransparency = 0.2
                 Box.Position = UDim2.new(0.5, 0, 1.200, 0)
                 Box.Name = 'Box'
-                Box.Size = UDim2.new(0, 207, 0, 22)
+                Box.Size = UDim2.new(0, 207, 0, 24)
                 Box.BorderSizePixel = 0
-                Box.BackgroundColor3 = Theme.Accent
+                Box.BackgroundColor3 = Theme.Control
                 Box.Parent = TextLabel
-                table.insert(Library._elements, {obj = Box, prop = "BackgroundColor3", tKey = "Accent"})
+                table.insert(Library._elements, {obj = Box, prop = "BackgroundColor3", tKey = "Control"})
                 
                 local UICorner = Instance.new('UICorner')
                 UICorner.CornerRadius = UDim.new(0, 4)
@@ -1474,7 +1629,7 @@ function Library:create_ui(config: table)
                 Header.BackgroundTransparency = 1
                 Header.Position = UDim2.new(0.5, 0, 0, 0)
                 Header.Name = 'Header'
-                Header.Size = UDim2.new(0, 207, 0, 22)
+                Header.Size = UDim2.new(0, 207, 0, 24)
                 Header.BorderSizePixel = 0
                 Header.Parent = Box
                 
@@ -1589,15 +1744,27 @@ function Library:create_ui(config: table)
                     settings.callback(option)
                 end
 
+                -- ============================================================
+                -- FIX #6: unfold_settings uses refresh_size (fixes clipping)
+                -- ============================================================
                 function DropdownManager:unfold_settings()
                     self._state = not self._state
-                    local extra = self._state and self._size or 0
                     if self._state then
                         ModuleManager._multiplier = ModuleManager._multiplier + self._size
                     else
                         ModuleManager._multiplier = ModuleManager._multiplier - self._size
                     end
                     ModuleManager:refresh_size()
+
+                    TweenService:Create(Dropdown, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                        Size = UDim2.fromOffset(207, 41 + (self._state and self._size or 0))
+                    }):Play()
+                    TweenService:Create(Box, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                        Size = UDim2.fromOffset(207, 24 + (self._state and self._size or 0))
+                    }):Play()
+                    TweenService:Create(Arrow, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                        Rotation = self._state and 180 or 0
+                    }):Play()
                 end
 
                 if #settings.options > 0 then
@@ -1609,7 +1776,7 @@ function Library:create_ui(config: table)
                         Option.TextTransparency = 0.6
                         Option.AnchorPoint = Vector2.new(0, 0.5)
                         Option.TextSize = 10
-                        Option.Size = UDim2.new(0, 186, 0, 16)
+                        Option.Size = UDim2.new(0, 186, 0, 18)
                         Option.TextColor3 = Theme.Text
                         local vText = (typeof(value) == "string" and value) or (typeof(value) == "Instance" and value.Name) or tostring(value)
                         Option.Text = vText
@@ -1637,7 +1804,7 @@ function Library:create_ui(config: table)
                             DropdownManager:update(value)
                         end)
                         if settings.maximum_options and index > settings.maximum_options then continue end
-                        DropdownManager._size = DropdownManager._size + 16
+                        DropdownManager._size = DropdownManager._size + 18
                         OptionsList.Size = UDim2.fromOffset(207, DropdownManager._size)
                     end
                 end
@@ -1655,7 +1822,7 @@ function Library:create_ui(config: table)
                         Option.TextTransparency = 0.6
                         Option.AnchorPoint = Vector2.new(0, 0.5)
                         Option.TextSize = 10
-                        Option.Size = UDim2.new(0, 186, 0, 16)
+                        Option.Size = UDim2.new(0, 186, 0, 18)
                         Option.TextColor3 = Theme.Text
                         local vText = (typeof(value) == "string" and value) or (typeof(value) == "Instance" and value.Name) or tostring(value)
                         Option.Text = vText
@@ -1684,7 +1851,7 @@ function Library:create_ui(config: table)
                         end)
 
                         if settings.maximum_options and index > settings.maximum_options then continue end
-                        self._size = self._size + 16
+                        self._size = self._size + 18
                         OptionsList.Size = UDim2.fromOffset(207, self._size)
                     end
                     if self._state then
@@ -1856,17 +2023,6 @@ function Library:create_ui(config: table)
                 Body.Parent = TextFrame
                 table.insert(Library._elements, {obj = Body, prop = "TextColor3", tKey = "TextDim"})
             
-                TextFrame.MouseEnter:Connect(function()
-                    TweenService:Create(TextFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                        BackgroundColor3 = Theme.ControlHover
-                    }):Play()
-                end)
-                TextFrame.MouseLeave:Connect(function()
-                    TweenService:Create(TextFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                        BackgroundColor3 = Theme.Control
-                    }):Play()
-                end)
-            
                 function TextManager:Set(new_settings)
                     Body.Text = new_settings.text or "Text"
                 end
@@ -1877,11 +2033,11 @@ function Library:create_ui(config: table)
                 local checked = false
                 LayoutOrderModule = LayoutOrderModule + 1
                 if self._size == 0 then self._size = 11 end
-                self._size += 20
+                self._size += 22
                 ModuleManager:refresh_size()
             
                 local FeatureContainer = Instance.new("Frame")
-                FeatureContainer.Size = UDim2.new(0, 207, 0, 16)
+                FeatureContainer.Size = UDim2.new(0, 207, 0, 18)
                 FeatureContainer.BackgroundTransparency = 1
                 FeatureContainer.Parent = Options
                 FeatureContainer.LayoutOrder = LayoutOrderModule
@@ -1894,7 +2050,7 @@ function Library:create_ui(config: table)
                 local FeatureButton = Instance.new("TextButton")
                 FeatureButton.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
                 FeatureButton.TextSize = 11
-                FeatureButton.Size = UDim2.new(1, -35, 0, 16)
+                FeatureButton.Size = UDim2.new(1, -35, 0, 18)
                 FeatureButton.BackgroundColor3 = Theme.Control
                 FeatureButton.TextColor3 = Theme.Text
                 FeatureButton.Text = "    " .. (settings.title or "Feature")
@@ -1910,7 +2066,7 @@ function Library:create_ui(config: table)
                 FeatureCorner.Parent = FeatureButton
                 
                 local RightContainer = Instance.new("Frame")
-                RightContainer.Size = UDim2.new(0, 45, 0, 16)
+                RightContainer.Size = UDim2.new(0, 45, 0, 18)
                 RightContainer.BackgroundTransparency = 1
                 RightContainer.Parent = FeatureContainer
                 
@@ -1923,7 +2079,7 @@ function Library:create_ui(config: table)
                 
                 local KeybindBox = Instance.new("TextLabel")
                 KeybindBox.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-                KeybindBox.Size = UDim2.new(0, 15, 0, 15)
+                KeybindBox.Size = UDim2.new(0, 16, 0, 16)
                 KeybindBox.BackgroundColor3 = Theme.Accent
                 KeybindBox.TextColor3 = Theme.Text
                 KeybindBox.TextSize = 11
@@ -1964,7 +2120,7 @@ function Library:create_ui(config: table)
                 local UseF_Var = nil
                 if not settings.disablecheck then
                     local Checkbox = Instance.new("TextButton")
-                    Checkbox.Size = UDim2.new(0, 15, 0, 15)
+                    Checkbox.Size = UDim2.new(0, 16, 0, 16)
                     Checkbox.BackgroundColor3 = checked and Theme.Accent or Theme.Control
                     Checkbox.Text = ""
                     Checkbox.Parent = RightContainer
@@ -2048,14 +2204,26 @@ function Library:create_ui(config: table)
         return TabManager
     end
 
+    -- ============================================================
+    -- FIX #10: Custom minimize key
+    -- ============================================================
     Connections['library_visiblity'] = UserInputService.InputBegan:Connect(function(input, process)
-        if input.KeyCode ~= Enum.KeyCode.Insert then return end
+        local key = Library._config._keybinds['Minimize_Keybind'] or "Enum.KeyCode.Insert"
+        if tostring(input.KeyCode) ~= key then return end
         self._ui_open = not self._ui_open
+        if Library._config._flags['UI_Gui_Visible'] then
+            self:set_gui_visibility(self._ui_open)
+            return
+        end
         self:change_visiblity(self._ui_open)
     end)
 
     self._ui.Container.Handler.Minimize.MouseButton1Click:Connect(function()
         self._ui_open = not self._ui_open
+        if Library._config._flags['UI_Gui_Visible'] then
+            self:set_gui_visibility(self._ui_open)
+            return
+        end
         self:change_visiblity(self._ui_open)
     end)
 
@@ -2069,6 +2237,9 @@ function Library:build_interface_tab()
 
     local Background_Folder = 'AchaoticUI/AllusiveModified/Backgrounds'
 
+    -- ============================================================
+    -- FIX #8: URL -> download -> getcustomasset pipeline
+    -- ============================================================
     local function resolve_background(source)
         if source == '' then return '' end
         if source:match('^%d+$') then return 'rbxassetid://'..source end
@@ -2100,6 +2271,9 @@ function Library:build_interface_tab()
         Background_Image.Size = UDim2.new(1, 0, 1, 0)
         Background_Image.Position = UDim2.new(0, 0, 0, 0)
         Background_Image.ScaleType = Enum.ScaleType.Crop
+        if resolved ~= '' then
+            Background_Image.Visible = true
+        end
     end
 
     local Transparent_Targets = { Module = true, Box = true, Keybind = true, Reset = true, AssetId = true }
@@ -2127,7 +2301,7 @@ function Library:build_interface_tab()
     local function build_reset_button(parent, layout_order, on_click)
         local Reset_Holder = Instance.new('Frame')
         Reset_Holder.Name = 'ResetHolder'
-        Reset_Holder.Size = UDim2.fromOffset(207, 23)
+        Reset_Holder.Size = UDim2.fromOffset(207, 25)
         Reset_Holder.BackgroundTransparency = 1
         Reset_Holder.BorderSizePixel = 0
         Reset_Holder.LayoutOrder = layout_order
@@ -2137,7 +2311,7 @@ function Library:build_interface_tab()
         Reset.Name = 'Reset'
         Reset.AnchorPoint = Vector2.new(0, 1)
         Reset.Position = UDim2.new(0, 0, 1, 0)
-        Reset.Size = UDim2.fromOffset(207, 22)
+        Reset.Size = UDim2.fromOffset(207, 24)
         Reset.BackgroundColor3 = Theme.Control
         Reset.BorderSizePixel = 0
         Reset.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
@@ -2687,7 +2861,7 @@ function Library:build_interface_tab()
 
         local Row = Instance.new('Frame')
         Row.Name = 'AssetRow'
-        Row.Size = UDim2.fromOffset(207, 24)
+        Row.Size = UDim2.fromOffset(207, 26)
         Row.BackgroundTransparency = 1
         Row.BorderSizePixel = 0
         Row.LayoutOrder = 0
@@ -2697,20 +2871,20 @@ function Library:build_interface_tab()
         Input.Name = 'AssetId'
         Input.AnchorPoint = Vector2.new(0, 0.5)
         Input.Position = UDim2.new(0, 0, 0.5, 0)
-        Input.Size = UDim2.fromOffset(207, 22)
-        Input.BackgroundColor3 = Theme.Accent
+        Input.Size = UDim2.fromOffset(207, 24)
+        Input.BackgroundColor3 = Theme.Control
         Input.BackgroundTransparency = 0.2
         Input.BorderSizePixel = 0
         Input.FontFace = Font.new('rbxasset://fonts/families/SourceSansPro.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
         Input.TextColor3 = Theme.Text
         Input.PlaceholderColor3 = Theme.TextDim
-        Input.PlaceholderText = 'Asset ID or Image Link'
-        Input.TextSize = 12
+        Input.PlaceholderText = 'Asset ID or Image URL'
+        Input.TextSize = 11
         Input.ClearTextOnFocus = false
         Input.ClipsDescendants = true
         Input.Text = Background_Image_Id
         Input.Parent = Row
-        table.insert(self._elements, {obj = Input, prop = "BackgroundColor3", tKey = "Accent"})
+        table.insert(self._elements, {obj = Input, prop = "BackgroundColor3", tKey = "Control"})
         table.insert(self._elements, {obj = Input, prop = "TextColor3", tKey = "Text"})
         table.insert(self._elements, {obj = Input, prop = "PlaceholderColor3", tKey = "TextDim"})
 
@@ -2740,7 +2914,7 @@ function Library:build_interface_tab()
             self:SetBackground('', 0.5)
         end)
 
-        image_module._size = image_module._size + 62
+        image_module._size = image_module._size + 66
         Options.Size = UDim2.fromOffset(241, image_module._size)
 
         if image_module._state then
@@ -2792,9 +2966,64 @@ function Library:build_interface_tab()
         callback = function(state) end,
     })
 
+    -- ============================================================
+    -- FIX #9: Hide on Minimize + Minimize Keybind
+    -- ============================================================
     settings_module:create_checkbox({
-        title = 'UI Toggle Keybind',
+        title = 'Hide on Minimize',
         flag = 'UI_Gui_Visible',
+        callback = function(state) end,
+    })
+
+    local keybind_module = InterfaceTab:create_module({
+        title = 'Minimize Key',
+        flag = 'UI_Minimize_Key',
+        description = 'Set the key that toggles the UI',
+        section = 'left',
+        callback = function(state) end,
+    })
+
+    local minimize_key_box
+    minimize_key_box = keybind_module:create_textbox({
+        title = 'Toggle Key (e.g. RightControl)',
+        flag = 'Minimize_Keybind_Display',
+        placeholder = 'RightControl',
+        callback = function() end,
+    })
+
+    do
+        local saved = Library._config._keybinds['Minimize_Keybind']
+        local display = saved and string.gsub(tostring(saved), 'Enum.KeyCode.', '') or 'RightControl'
+        minimize_key_box._text = display
+        if minimize_key_box._textbox then
+            pcall(function() minimize_key_box._textbox.Text = display end)
+        end
+    end
+
+    keybind_module:create_button({
+        title = 'Apply Key',
+        callback = function()
+            local raw = minimize_key_box._text or 'RightControl'
+            local keycode = 'Enum.KeyCode.'..raw
+            Library._config._keybinds['Minimize_Keybind'] = keycode
+            Config:save(game.GameId, Library._config)
+            Library:Notify({title = 'Minimize Key', text = 'Set to '..raw, duration = 3})
+        end
+    })
+
+    keybind_module:create_button({
+        title = 'Reset to Insert',
+        callback = function()
+            Library._config._keybinds['Minimize_Keybind'] = 'Enum.KeyCode.Insert'
+            minimize_key_box._text = 'Insert'
+            Config:save(game.GameId, Library._config)
+            Library:Notify({title = 'Minimize Key', text = 'Reset to Insert', duration = 3})
+        end
+    })
+
+    settings_module:create_checkbox({
+        title = 'UI Toggle Keybind (Insert)',
+        flag = 'UI_Gui_Toggle_Notify',
         callback = function(state) end
     })
 
@@ -2881,7 +3110,7 @@ function Library:build_interface_tab()
     local GraphPanel = Instance.new("Frame")
     GraphPanel.Size = UDim2.new(0, 184, 0, 76)
     GraphPanel.Position = UDim2.new(0, 20, 0.5, -38)
-    GraphPanel.BackgroundColor3 = Color3.fromRGB(16, 24, 30)
+    GraphPanel.BackgroundColor3 = Theme.Group
     GraphPanel.BorderSizePixel = 0
     GraphPanel.Active = true
     GraphPanel.Visible = false
@@ -2931,7 +3160,7 @@ function Library:build_interface_tab()
     local FpsPanel = Instance.new("Frame", OverlayGui)
     FpsPanel.Size = UDim2.new(0, 140, 0, 34)
     FpsPanel.Position = UDim2.new(0, 20, 0.5, 44)
-    FpsPanel.BackgroundColor3 = Color3.fromRGB(16, 24, 30)
+    FpsPanel.BackgroundColor3 = Theme.Group
     FpsPanel.BorderSizePixel = 0
     FpsPanel.Active = true
     FpsPanel.Visible = false
@@ -3057,6 +3286,9 @@ function Library:build_interface_tab()
         end,
     })
 
+    -- ============================================================
+    -- FIX #11: Keybind list overlay
+    -- ============================================================
     local KeybindOverlayGui = Instance.new("ScreenGui")
     KeybindOverlayGui.Name = "KeybindOverlay"
     KeybindOverlayGui.ResetOnSpawn = false
@@ -3067,9 +3299,9 @@ function Library:build_interface_tab()
 
     local KeybindFrame = Instance.new("Frame")
     KeybindFrame.Name = "OverlayFrame"
-    KeybindFrame.Size = UDim2.new(0, 200, 0, 38)
+    KeybindFrame.Size = UDim2.new(0, 220, 0, 38)
     KeybindFrame.Position = UDim2.new(0, 20, 0.5, -19)
-    KeybindFrame.BackgroundColor3 = Color3.fromRGB(16, 24, 30)
+    KeybindFrame.BackgroundColor3 = Theme.Group
     KeybindFrame.BackgroundTransparency = 0.12
     KeybindFrame.BorderSizePixel = 0
     KeybindFrame.Parent = KeybindOverlayGui
@@ -3169,10 +3401,13 @@ function Library:build_interface_tab()
         
         local validBinds = {}
         for flag, key in pairs(Library._config._keybinds) do
-            table.insert(validBinds, {flag = flag, key = string.gsub(tostring(key), "Enum.KeyCode.", "")})
+            if flag ~= 'Minimize_Keybind' then
+                local title = Library._keybind_list[flag] or flag
+                table.insert(validBinds, {flag = flag, title = title, key = string.gsub(tostring(key), "Enum.KeyCode.", "")})
+            end
         end
         
-        table.sort(validBinds, function(a, b) return a.flag < b.flag end)
+        table.sort(validBinds, function(a, b) return a.title < b.title end)
         
         local yBase = 38
         for i, bind in ipairs(validBinds) do
@@ -3198,7 +3433,7 @@ function Library:build_interface_tab()
             labelText.Size = UDim2.new(1, -40, 1, 0)
             labelText.Position = UDim2.new(0, 0, 0, 0)
             labelText.BackgroundTransparency = 1
-            labelText.Text = bind.flag
+            labelText.Text = bind.title
             labelText.TextColor3 = Theme.TextDim
             labelText.TextSize = 13
             labelText.Font = Enum.Font.GothamSemibold
@@ -3218,22 +3453,22 @@ function Library:build_interface_tab()
             keyText.Parent = row
             table.insert(Library._elements, {obj = keyText, prop = "TextColor3", tKey = "Accent"})
             
-            row:SetAttribute("Flag", bind.flag)
-            
             yBase = yBase + 30
         end
-        KeybindFrame.Size = UDim2.new(0, 200, 0, 38 + (#validBinds * 30))
+        KeybindFrame.Size = UDim2.new(0, 220, 0, 38 + (#validBinds * 30))
         lastBindCount = #validBinds
     end
 
     RunService.RenderStepped:Connect(function(dt)
         if not KeybindOverlayGui.Enabled then return end
         keybindUpdateTimer += dt
-        if keybindUpdateTimer >= 0.2 then
+        if keybindUpdateTimer >= 0.3 then
             keybindUpdateTimer = 0
             local currentCount = 0
             for flag, key in pairs(Library._config._keybinds) do
-                currentCount += 1
+                if flag ~= 'Minimize_Keybind' then
+                    currentCount += 1
+                end
             end
             if currentCount ~= lastBindCount then
                 RefreshKeybindOverlay()
