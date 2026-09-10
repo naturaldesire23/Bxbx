@@ -99,8 +99,10 @@ function convertTableToString(inputTable)
 end
 
 local CONFIG_DIR = "AchaoticUI/AllusiveModified"
+local BACKGROUND_DIR = CONFIG_DIR.."/Backgrounds"
 if not isfolder(CONFIG_DIR) then makefolder(CONFIG_DIR) end
 if not isfolder(CONFIG_DIR.."/Configs") then makefolder(CONFIG_DIR.."/Configs") end
+if not isfolder(BACKGROUND_DIR) then makefolder(BACKGROUND_DIR) end
 
 local Connections = setmetatable({
     disconnect = function(self, connection)
@@ -453,16 +455,68 @@ function Library:SetColor(key, color)
     Config:save(game.GameId, Library._config)
 end
 
+-- ─────────────────────────────────────────────────────────────
+--  Background resolution — supports rbxassetid, raw digits, http(s) URLs
+-- ─────────────────────────────────────────────────────────────
+local function resolveBackgroundSource(source)
+    if type(source) ~= "string" then return '' end
+    source = source:match('^%s*(.-)%s*$')
+    if source == '' then return '' end
+
+    -- raw numeric ID
+    if source:match('^%d+$') then
+        return 'rbxassetid://'..source
+    end
+
+    -- already a roblox scheme
+    if source:match('^rbx%a+://') then
+        return source
+    end
+
+    -- external URL: download + cache to a local file, then serve via getcustomasset
+    if source:match('^https?://') then
+        if not (writefile and isfile and isfolder and (getcustomasset or getsynasset)) then
+            return ''
+        end
+        local Custom_Asset = getcustomasset or getsynasset
+        local ext = source:match('%.(%a%a%a%a?)[%?#]') or source:match('%.(%a%a%a%a?)$') or 'png'
+        local filename = source:gsub('%W',''):sub(-60)..'.'..ext
+        local path = BACKGROUND_DIR..'/'..filename
+        if not isfile(path) then
+            local ok, body = pcall(function()
+                return game:HttpGet(source, true)
+            end)
+            if not ok or not body then return '' end
+            local writeOk = pcall(writefile, path, body)
+            if not writeOk then return '' end
+        end
+        local ok, result = pcall(Custom_Asset, path)
+        if ok and result then return result end
+        return ''
+    end
+
+    -- treat anything else as a custom asset path
+    if getcustomasset or getsynasset then
+        local Custom_Asset = getcustomasset or getsynasset
+        local ok, result = pcall(Custom_Asset, source)
+        if ok and result then return result end
+    end
+
+    return ''
+end
+
 function Library:SetBackground(source, transparency)
     if not self._background then return end
-    if typeof(source) == "string" and source ~= '' then
-        self._background.Image = source
+    local resolved = resolveBackgroundSource(source)
+    if resolved ~= '' then
+        self._background.Image = resolved
         self._background.Visible = true
         self._background.ImageTransparency = transparency or 0.5
     else
+        self._background.Image = ''
         self._background.Visible = false
     end
-    Library._config._flags['Background_Image'] = (typeof(source) == "string" and source) or ''
+    Library._config._flags['Background_Image'] = type(source) == "string" and source or ''
     Library._config._flags['Background_Transparency'] = transparency or 0.5
     Config:save(game.GameId, Library._config)
 end
@@ -706,8 +760,7 @@ function Library:create_ui(config)
             self:SetBackground(saved_bg, Library._config._flags['Background_Transparency'] or 0.5)
         end
 
-        self._ui_loaded = true
-    end
+        self._ui_loaded = true    end
 
     function self:update_tabs(tab)
         for index, object in Tabs:GetChildren() do
@@ -1020,7 +1073,6 @@ function Library:create_ui(config)
             UICorner.CornerRadius = UDim.new(1, 0)
             UICorner.Parent = Circle
 
-            -- FIX: keybind box is a TextButton so it accepts MouseButton1Click
             local Keybind = Instance.new('TextButton')
             Keybind.Name = 'Keybind'
             Keybind.Text = ''
@@ -1189,7 +1241,6 @@ function Library:create_ui(config)
                 KeybindText.Text = 'None'
             end
 
-            -- Click keybind box to bind
             Keybind.MouseButton1Click:Connect(function()
                 if Library._choosing_keybind then return end
                 Library._choosing_keybind = true
@@ -2302,7 +2353,6 @@ function Library:build_interface_tab()
                 return
             end
             local loaded = Config:load('Configs/'..name, { _flags = {}, _keybinds = {} })
-
             for flag in pairs(Library._flag_registry) do
                 Library._config._flags[flag] = nil
             end
@@ -2312,18 +2362,15 @@ function Library:build_interface_tab()
             Library._config._flags['Background_Image'] = nil
             Library._config._flags['Background_Transparency'] = nil
             Library._config._flags['Background_Image_Id'] = nil
-
             for k, v in pairs(loaded._flags or {}) do
                 Library._config._flags[k] = v
             end
             Library._config._keybinds = loaded._keybinds or {}
-
             for flag, fn in pairs(Library._flag_registry) do
                 if Library._config._flags[flag] ~= nil then
                     pcall(fn, Library._config._flags[flag])
                 end
             end
-
             for key, _ in pairs(DefaultTheme) do
                 local s = Library._config._flags['Theme_'..key]
                 if s then Library:SetColor(key, Library:hexToRGB(s)) end
@@ -2332,7 +2379,6 @@ function Library:build_interface_tab()
             if typeof(s) == "string" then
                 Library:SetBackground(s, Library._config._flags['Background_Transparency'] or 0.5)
             end
-
             self:Notify({title = 'Config', text = 'Loaded '..name, duration = 3})
         end,
     })
@@ -2351,7 +2397,7 @@ function Library:build_interface_tab()
         end,
     })
 
-    -- Appearance (color picker)
+    -- Appearance
     local color_module = InterfaceTab:create_module({
         title = 'Appearance',
         flag = 'Gui_Colors',
@@ -2666,7 +2712,7 @@ function Library:build_interface_tab()
         Row.Size = UDim2.fromOffset(207, 28)
         Row.BackgroundTransparency = 1
         Row.ZIndex = 4
-        Row.LayoutOrder = 0
+        Row.LayoutOrder = 1
         Row.Parent = bg_frame.Options
 
         local Input = Instance.new('TextBox')
@@ -2680,7 +2726,7 @@ function Library:build_interface_tab()
         Input.FontFace = Font.new('rbxasset://fonts/families/SourceSansPro.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
         Input.TextColor3 = Color3.fromRGB(255, 255, 255)
         Input.PlaceholderColor3 = Color3.fromRGB(180, 180, 180)
-        Input.PlaceholderText = 'Asset ID or rbxassetid://'
+        Input.PlaceholderText = 'Asset ID, rbxassetid://, or https:// URL'
         Input.TextSize = 11
         Input.ClearTextOnFocus = false
         Input.Text = bg_id
@@ -2701,6 +2747,12 @@ function Library:build_interface_tab()
             bg_id = src
             self:SetBackground(src, Library._config._flags['Background_Transparency'] or 0.5)
             Library._config._flags['Background_Image_Id'] = src
+            for pname, psrc in pairs(Presets) do
+                if psrc == src then
+                    pcall(function() preset_drop:update(pname) end)
+                    break
+                end
+            end
         end)
 
         local ResetRow = Instance.new('TextButton')
@@ -2712,7 +2764,7 @@ function Library:build_interface_tab()
         ResetRow.Text = 'Reset'
         ResetRow.AutoButtonColor = false
         ResetRow.ZIndex = 4
-        ResetRow.LayoutOrder = 4
+        ResetRow.LayoutOrder = 3
         ResetRow.Parent = bg_frame.Options
         local RC = Instance.new('UICorner'); RC.CornerRadius = UDim.new(0,4); RC.Parent = ResetRow
         table.insert(Library._elements, {obj = ResetRow, prop = "BackgroundColor3", tKey = "Control"})
@@ -2720,18 +2772,105 @@ function Library:build_interface_tab()
         ResetRow.MouseButton1Click:Connect(function()
             Input.Text = ''
             bg_id = ''
-            preset_drop:update('None')
+            pcall(function() preset_drop:update('None') end)
             trans_slider:set_percentage(50)
             Library._config._flags['Background_Image_Id'] = ''
             self:SetBackground('', 0.5)
         end)
 
-        bg_module._size = bg_module._size + 60
+        bg_module._size = bg_module._size + 64
         bg_frame.Options.Size = UDim2.fromOffset(241, bg_module._size)
         if bg_module._state then
             bg_frame.Size = UDim2.fromOffset(241, 93 + bg_module._size + bg_module._multiplier)
         end
     end
+
+    -- UI Transparency
+    local ui_trans_module = InterfaceTab:create_module({
+        title = 'UI Transparency',
+        flag = 'UI_Transparency_Module',
+        description = 'Container + module opacity',
+        section = 'left',
+        callback = function() end,
+    })
+
+    ui_trans_module:create_slider({
+        title = 'Container Opacity',
+        flag = 'UI_Container_Transparency',
+        minimum_value = 0,
+        maximum_value = 100,
+        value = 5,
+        round_number = true,
+        callback = function(value)
+            if self._container then
+                self._container.BackgroundTransparency = value / 100
+            end
+        end,
+    })
+
+    local function set_module_transparency(value)
+        for _, o in ipairs(self._ui:GetDescendants()) do
+            if o.Name == 'Module' then
+                o.BackgroundTransparency = value
+            end
+        end
+        for _, o in ipairs(self._ui:GetDescendants()) do
+            if o.Name == 'Box' then
+                o.BackgroundTransparency = math.clamp(value + 0.7, 0, 1)
+            end
+        end
+    end
+
+    ui_trans_module:create_slider({
+        title = 'Module Transparency',
+        flag = 'UI_Module_Transparency',
+        minimum_value = 0,
+        maximum_value = 100,
+        value = 50,
+        round_number = true,
+        callback = function(value)
+            set_module_transparency(value / 100)
+        end,
+    })
+
+    -- Settings
+    local settings_module = InterfaceTab:create_module({
+        title = 'Settings',
+        flag = 'UI_Settings',
+        description = 'UI Behavior and Overlay',
+        section = 'left',
+        callback = function() end,
+    })
+
+    settings_module:create_checkbox({
+        title = 'Hide on Minimize',
+        flag = 'UI_Gui_Visible',
+        callback = function(state) end,
+    })
+
+    settings_module:create_checkbox({
+        title = 'FPS Booster',
+        flag = 'UI_FPS_Booster',
+        callback = function(state) end,
+    })
+
+    settings_module:create_checkbox({
+        title = 'Show FPS',
+        flag = 'UI_Show_Fps',
+        callback = function(state) end,
+    })
+
+    settings_module:create_checkbox({
+        title = 'Show Ping',
+        flag = 'UI_Show_Ping',
+        callback = function(state) end,
+    })
+
+    settings_module:create_checkbox({
+        title = 'Keybinds List',
+        flag = 'UI_Show_Keybinds',
+        callback = function(state) end,
+    })
 
     -- Notifications
     local notif_module = InterfaceTab:create_module({
