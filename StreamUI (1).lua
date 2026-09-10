@@ -20,25 +20,18 @@ local GG = {
 
 local SelectedLanguage = GG.Language
 
-local UserInputService = cloneref(game:GetService('UserInputService'))
-local ContentProvider = cloneref(game:GetService('ContentProvider'))
-local TweenService = cloneref(game:GetService('TweenService'))
-local HttpService = cloneref(game:GetService('HttpService'))
-local TextService = cloneref(game:GetService('TextService'))
-local RunService = cloneref(game:GetService('RunService'))
-local Lighting = cloneref(game:GetService('Lighting'))
-local Players = cloneref(game:GetService('Players'))
-local CoreGui = cloneref(game:GetService('CoreGui'))
-local Debris = cloneref(game:GetService('Debris'))
-local GuiService = cloneref(game:GetService('GuiService'))
-local Workspace = cloneref(game:GetService('Workspace'))
-
-export type Services = {
-    UserInputService : UserInputService,
-    Players : Players,
-    ContentProvider : ContentProvider,
-    CoreGui : PlayerGui
-};
+local UserInputService = cloneref and cloneref(game:GetService('UserInputService')) or game:GetService('UserInputService')
+local ContentProvider = cloneref and cloneref(game:GetService('ContentProvider')) or game:GetService('ContentProvider')
+local TweenService = cloneref and cloneref(game:GetService('TweenService')) or game:GetService('TweenService')
+local HttpService = cloneref and cloneref(game:GetService('HttpService')) or game:GetService('HttpService')
+local TextService = cloneref and cloneref(game:GetService('TextService')) or game:GetService('TextService')
+local RunService = cloneref and cloneref(game:GetService('RunService')) or game:GetService('RunService')
+local Lighting = cloneref and cloneref(game:GetService('Lighting')) or game:GetService('Lighting')
+local Players = cloneref and cloneref(game:GetService('Players')) or game:GetService('Players')
+local CoreGui = cloneref and cloneref(game:GetService('CoreGui')) or game:GetService('CoreGui')
+local Debris = cloneref and cloneref(game:GetService('Debris')) or game:GetService('Debris')
+local GuiService = cloneref and cloneref(game:GetService('GuiService')) or game:GetService('GuiService')
+local Workspace = cloneref and cloneref(game:GetService('Workspace')) or game:GetService('Workspace')
 
 local mouse = Players.LocalPlayer:GetMouse()
 
@@ -59,7 +52,7 @@ for k, v in pairs(DefaultTheme) do
 end
 
 local Library = {
-    _config = nil,
+    _config = { _flags = {}, _keybinds = {}, _library = {} },
     _choosing_keybind = false,
     _device = nil,
     _ui_open = true,
@@ -77,20 +70,20 @@ local Library = {
     _keybind_list = {},
     _notif_side = "Right",
     _notif_opacity = 0,
-    _background_image_transparency = 0.5,
-    _module_transparency = 0
+    _shadow = nil,
+    _shadow_scale = nil
 }
 Library.__index = Library
 
-function Library:RandomString() : string
-    return string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))
-end;
+local ScreenGuiName = "GameUI"
 
 local SecureScreenGui = Instance.new('ScreenGui')
-SecureScreenGui.Name = "GameUI"
+SecureScreenGui.Name = ScreenGuiName
 SecureScreenGui.Parent = CoreGui
 SecureScreenGui.ResetOnSpawn = false
 SecureScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+if protect_gui then pcall(protect_gui, SecureScreenGui) end
 
 function convertStringToTable(inputString)
     local result = {}
@@ -103,12 +96,6 @@ end
 
 function convertTableToString(inputTable)
     return table.concat(inputTable, ", ")
-end
-
-if writefile and isfolder then
-    if not isfolder("AchaoticUI/AllusiveModified") then
-        pcall(makefolder, "AchaoticUI/AllusiveModified")
-    end
 end
 
 local Connections = setmetatable({
@@ -126,29 +113,30 @@ local Connections = setmetatable({
 }, Connections)
 
 local Config = setmetatable({
-    save = function(self: any, file_name: any, config: any)
-        if not writefile then return end
+    save = function(self, file_name, config)
+        if not (writefile and isfolder) then return end
         local success_save, result = pcall(function()
+            if not isfolder('AchaoticUI/AllusiveModified') then
+                makefolder('AchaoticUI/AllusiveModified')
+            end
             local flags = HttpService:JSONEncode(config)
             writefile('AchaoticUI/AllusiveModified/'..file_name..'.json', flags)
         end)
         if not success_save then warn('failed to save config', result) end
     end,
-    load = function(self: any, file_name: any, config: any)
-        if not isfile then return config end
+    load = function(self, file_name, config)
+        if not (isfile and readfile) then return config end
         local success_load, result = pcall(function()
             if not isfile('AchaoticUI/AllusiveModified/'..file_name..'.json') then
-                self:save(file_name, config)
-                return
+                return config
             end
             local flags = readfile('AchaoticUI/AllusiveModified/'..file_name..'.json')
-            if not flags then
-                self:save(file_name, config)
-                return
-            end
+            if not flags then return config end
             return HttpService:JSONDecode(flags)
         end)
-        if not success_load then warn('failed to load config', result) end
+        if not success_load then
+            return config
+        end
         if not result then
             result = { _flags = {}, _keybinds = {}, _library = {} }
         end
@@ -161,7 +149,7 @@ function Library.new(config: table)
         _loaded = false, _tab = 0,
     }, Library)
 
-    Library._config = Config:load(game.GameId)
+    Library._config = Config:load(game.GameId, { _flags = {}, _keybinds = {}, _library = {} })
 
     local currentconfig = config or {
         title = config and config.title or "Achaotic",
@@ -178,7 +166,7 @@ NotificationContainer.Name = "NotificationContainer"
 NotificationContainer.Size = UDim2.new(0, 300, 0, 0)
 NotificationContainer.Position = UDim2.new(0.8, 0, 0, 10)
 NotificationContainer.BackgroundTransparency = 1
-NotificationContainer.ClipsDescendants = false;
+NotificationContainer.ClipsDescendants = false
 NotificationContainer.Parent = SecureScreenGui
 NotificationContainer.AutomaticSize = Enum.AutomaticSize.Y
 
@@ -231,7 +219,7 @@ function Library.SendNotification(settings)
         ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
     }
     InnerGradient.Transparency = NumberSequence.new{
-        NumberSequenceKeypoint.new(0, 0.85),
+        NumberSequenceKeypoint.new(0, 0.9),
         NumberSequenceKeypoint.new(1, 1)
     }
     InnerGradient.Rotation = 90
@@ -293,7 +281,7 @@ function Library.SendNotification(settings)
     table.insert(Library._elements, {obj = Body, prop = "TextColor3", tKey = "TextDim"})
 
     task.spawn(function()
-        wait(0.1)
+        task.wait(0.1)
         local totalHeight = Title.TextBounds.Y + Body.TextBounds.Y + 12
         InnerFrame.Size = UDim2.new(1, 0, 0, totalHeight)
     end)
@@ -304,7 +292,7 @@ function Library.SendNotification(settings)
         })
         tweenIn:Play()
         local duration = settings.duration or 5
-        wait(duration)
+        task.wait(duration)
         local tweenOut = TweenService:Create(InnerFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
             Position = UDim2.new(1, 310, 0, 10 + NotificationContainer.Size.Y.Offset)
         })
@@ -336,16 +324,16 @@ function Library:get_device()
     self._device = device
 end
 
-function Library:removed(action: any)
+function Library:removed(action)
     self._ui.AncestryChanged:Once(action)
 end
 
-function Library:flag_type(flag: any, flag_type: any)
-    if not Library._config._flags[flag] then return end
+function Library:flag_type(flag, flag_type)
+    if Library._config._flags[flag] == nil then return end
     return typeof(Library._config._flags[flag]) == flag_type
 end
 
-function Library:remove_table_value(__table: any, table_value: string)
+function Library:remove_table_value(__table, table_value)
     for index, value in __table do
         if value ~= table_value then continue end
         table.remove(__table, index)
@@ -363,12 +351,12 @@ end
 
 function Library:SetColor(key, color)
     Theme[key] = color
-    for _, element in ipairs(Library._elements or {}) do
+    for _, element in ipairs(Library._elements) do
         if element.tKey == key then
             pcall(function() element.obj[element.prop] = color end)
         end
     end
-    self._config._flags['Theme_'..key] = self:rgbToHex(color)
+    Library._config._flags['Theme_'..key] = self:rgbToHex(color)
     Config:save(game.GameId, Library._config)
 end
 
@@ -382,8 +370,8 @@ function Library:SetBackground(source, transparency)
     else
         self._background.Visible = false
     end
-    self._config._flags['Background_Image'] = (typeof(source) == "string" and source) or ''
-    self._config._flags['Background_Transparency'] = transparency or 0.5
+    Library._config._flags['Background_Image'] = (typeof(source) == "string" and source) or ''
+    Library._config._flags['Background_Transparency'] = transparency or 0.5
     Config:save(game.GameId, Library._config)
 end
 
@@ -402,6 +390,56 @@ function Library:create_ui(config: table)
     Container.Parent = SecureScreenGui
     self._container = Container
     table.insert(Library._elements, {obj = Container, prop = "BackgroundColor3", tKey = "Background"})
+
+    local ShadowHolder = Instance.new('Frame')
+    ShadowHolder.Name = 'ShadowHolder'
+    ShadowHolder.AnchorPoint = Container.AnchorPoint
+    ShadowHolder.Position = Container.Position
+    ShadowHolder.Size = Container.Size
+    ShadowHolder.BackgroundTransparency = 1
+    ShadowHolder.BorderSizePixel = 0
+    ShadowHolder.ZIndex = 0
+    ShadowHolder.Parent = SecureScreenGui
+    ShadowHolder.Visible = false
+    self._shadow = ShadowHolder
+
+    local ShadowOuter = Instance.new('ImageLabel')
+    ShadowOuter.Name = 'SoftShadowOuter'
+    ShadowOuter.AnchorPoint = Vector2.new(0.5, 0.5)
+    ShadowOuter.Position = UDim2.new(0.5, 0, 0.5, 2)
+    ShadowOuter.Size = UDim2.new(1, 58, 1, 58)
+    ShadowOuter.BackgroundTransparency = 1
+    ShadowOuter.BorderSizePixel = 0
+    ShadowOuter.Image = 'rbxassetid://6014261993'
+    ShadowOuter.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    ShadowOuter.ImageTransparency = 0.45
+    ShadowOuter.ScaleType = Enum.ScaleType.Slice
+    ShadowOuter.SliceCenter = Rect.new(49, 49, 450, 450)
+    ShadowOuter.ZIndex = 0
+    ShadowOuter.Parent = ShadowHolder
+
+    local ShadowInner = Instance.new('ImageLabel')
+    ShadowInner.Name = 'SoftShadowInner'
+    ShadowInner.AnchorPoint = Vector2.new(0.5, 0.5)
+    ShadowInner.Position = UDim2.new(0.5, 0, 0.5, 1)
+    ShadowInner.Size = UDim2.new(1, 32, 1, 32)
+    ShadowInner.BackgroundTransparency = 1
+    ShadowInner.BorderSizePixel = 0
+    ShadowInner.Image = 'rbxassetid://6014261993'
+    ShadowInner.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    ShadowInner.ImageTransparency = 0.3
+    ShadowInner.ScaleType = Enum.ScaleType.Slice
+    ShadowInner.SliceCenter = Rect.new(49, 49, 450, 450)
+    ShadowInner.ZIndex = 0
+    ShadowInner.Parent = ShadowHolder
+
+    Container:GetPropertyChangedSignal('Position'):Connect(function()
+        ShadowHolder.Position = Container.Position
+    end)
+
+    Container:GetPropertyChangedSignal('Size'):Connect(function()
+        ShadowHolder.Size = Container.Size
+    end)
 
     local ContainerGradient = Instance.new("UIGradient")
     ContainerGradient.Color = ColorSequence.new{
@@ -534,11 +572,15 @@ function Library:create_ui(config: table)
     table.insert(Library._elements, {obj = Minimize, prop = "TextColor3", tKey = "Text"})
     
     local UIScale = Instance.new('UIScale')
-    UIScale.Parent = Container    
+    UIScale.Parent = Container
+    
+    local ShadowScale = Instance.new('UIScale')
+    ShadowScale.Parent = ShadowHolder
+    self._shadow_scale = ShadowScale
     
     self._ui = SecureScreenGui
 
-    local function on_drag(input: InputObject, process: boolean)
+    local function on_drag(input, process)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
             self._dragging = true
             self._drag_start = input.Position
@@ -551,13 +593,13 @@ function Library:create_ui(config: table)
         end
     end
 
-    local function update_drag(input: any)
+    local function update_drag(input)
         local delta = input.Position - self._drag_start
         local position = UDim2.new(self._container_position.X.Scale, self._container_position.X.Offset + delta.X, self._container_position.Y.Scale, self._container_position.Y.Offset + delta.Y)
         TweenService:Create(Container, TweenInfo.new(0.2), { Position = position }):Play()
     end
 
-    local function drag(input: InputObject, process: boolean)
+    local function drag(input, process)
         if not self._dragging then return end
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             update_drag(input)
@@ -574,17 +616,18 @@ function Library:create_ui(config: table)
 
     function self:Update1Run(a)
         if a == "nil" then
-            Container.BackgroundTransparency = 0.05;
+            Container.BackgroundTransparency = 0.05
         else
-            pcall(function() Container.BackgroundTransparency = tonumber(a); end);
-        end;
-    end;
+            pcall(function() Container.BackgroundTransparency = tonumber(a) end)
+        end
+    end
 
     function self:UIVisiblity()
-        SecureScreenGui.Enabled = not SecureScreenGui.Enabled;
-    end;
+        SecureScreenGui.Enabled = not SecureScreenGui.Enabled
+    end
 
-    function self:change_visiblity(state: boolean)
+    function self:change_visiblity(state)
+        ShadowHolder.Visible = state
         if state then
             TweenService:Create(Container, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 Size = UDim2.fromOffset(698, 479)
@@ -602,39 +645,43 @@ function Library:create_ui(config: table)
             if not object:IsA('ImageLabel') then continue end
             table.insert(content, object)
         end
-        ContentProvider:PreloadAsync(content)
+        pcall(function() ContentProvider:PreloadAsync(content) end)
         self:get_device()
 
         if self._device == 'Mobile' or self._device == 'Unknown' then
             self:get_screen_scale()
             UIScale.Scale = self._ui_scale
+            ShadowScale.Scale = self._ui_scale
             Connections['ui_scale'] = workspace.CurrentCamera:GetPropertyChangedSignal('ViewportSize'):Connect(function()
                 self:get_screen_scale()
                 UIScale.Scale = self._ui_scale
+                ShadowScale.Scale = self._ui_scale
             end)
         end
     
+        ShadowHolder.Visible = true
+
         TweenService:Create(Container, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
             Size = UDim2.fromOffset(698, 479)
         }):Play()
 
         self._ui_loaded = true
         
-        local saved_bg = self._config._flags['Background_Image']
+        local saved_bg = Library._config._flags['Background_Image']
         if typeof(saved_bg) == "string" and saved_bg ~= '' then
-            local trans = self._config._flags['Background_Transparency'] or 0.5
+            local trans = Library._config._flags['Background_Transparency'] or 0.5
             self:SetBackground(saved_bg, trans)
         end
 
         for key, color in pairs(DefaultTheme) do
-            local saved = self._config._flags['Theme_'..key]
+            local saved = Library._config._flags['Theme_'..key]
             if saved then
                 self:SetColor(key, self:hexToRGB(saved))
             end
         end
     end
 
-    function self:update_tabs(tab: TextButton)
+    function self:update_tabs(tab)
         for index, object in Tabs:GetChildren() do
             if object.Name ~= 'Tab' then continue end
             if object == tab then
@@ -673,7 +720,7 @@ function Library:create_ui(config: table)
         end
     end
 
-    function self:update_sections(left_section: ScrollingFrame, right_section: ScrollingFrame)
+    function self:update_sections(left_section, right_section)
         for _, object in Sections:GetChildren() do
             if object == left_section or object == right_section then
                 object.Visible = true
@@ -683,9 +730,9 @@ function Library:create_ui(config: table)
         end
     end
 
-    function self:create_tab(title: string, icon: string)
+    function self:create_tab(title, icon)
         local TabManager = {}
-        local LayoutOrder = 0;
+        local LayoutOrder = 0
 
         local font_params = Instance.new('GetTextBoundsParams')
         font_params.Text = title
@@ -805,8 +852,8 @@ function Library:create_ui(config: table)
             self:update_sections(LeftSection, RightSection)
         end)
 
-        function TabManager:create_module(settings: any)
-            local LayoutOrderModule = 0;
+        function TabManager:create_module(settings)
+            local LayoutOrderModule = 0
             local ModuleManager = {
                 _state = false, _size = 0, _multiplier = 0
             }
@@ -870,7 +917,7 @@ function Library:create_ui(config: table)
             Description.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
             Description.TextColor3 = Theme.Accent
             Description.TextTransparency = 0.7
-            Description.Text = settings.description
+            Description.Text = settings.description or ""
             Description.Name = 'Description'
             Description.Size = UDim2.new(0, 205, 0, 13)
             Description.AnchorPoint = Vector2.new(0, 0.5)
@@ -934,7 +981,7 @@ function Library:create_ui(config: table)
             local Options = Instance.new('Frame')
             Options.Name = 'Options'
             Options.BackgroundTransparency = 1
-            Options.Position = UDim2.new(0, 0, 1, 0)
+            Options.Position = UDim2.new(0, 0, 0, 93)
             Options.Size = UDim2.new(0, 241, 0, 8)
             Options.BorderSizePixel = 0
             Options.Parent = Module
@@ -958,7 +1005,7 @@ function Library:create_ui(config: table)
                 end
             end
 
-            function ModuleManager:change_state(state: boolean)
+            function ModuleManager:change_state(state)
                 self._state = state
                 if self._state then
                     TweenService:Create(Module, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
@@ -1014,7 +1061,7 @@ function Library:create_ui(config: table)
                 ModuleManager:change_state(not ModuleManager._state)
             end)
 
-            function ModuleManager:create_checkbox(settings: any)
+            function ModuleManager:create_checkbox(settings)
                 LayoutOrderModule = LayoutOrderModule + 1
                 local CheckboxManager = { _state = false }
             
@@ -1079,7 +1126,7 @@ function Library:create_ui(config: table)
                 FillCorner.CornerRadius = UDim.new(0, 3)
                 FillCorner.Parent = Fill
                 
-                function CheckboxManager:change_state(state: boolean)
+                function CheckboxManager:change_state(state)
                     self._state = state
                     if self._state then
                         TweenService:Create(Box, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
@@ -1116,7 +1163,7 @@ function Library:create_ui(config: table)
                 return CheckboxManager
             end
 
-            function ModuleManager:create_button(settings: any)
+            function ModuleManager:create_button(settings)
                 LayoutOrderModule = LayoutOrderModule + 1
                 if self._size == 0 then self._size = 11 end
                 self._size += 20
@@ -1148,7 +1195,7 @@ function Library:create_ui(config: table)
                 end)
             end
             
-            function ModuleManager:create_slider(settings: any)
+            function ModuleManager:create_slider(settings)
                 LayoutOrderModule = LayoutOrderModule + 1
                 local SliderManager = {}
 
@@ -1241,7 +1288,7 @@ function Library:create_ui(config: table)
                 Value.Parent = Slider
                 table.insert(Library._elements, {obj = Value, prop = "TextColor3", tKey = "Text"})
 
-                function SliderManager:set_percentage(percentage: number)
+                function SliderManager:set_percentage(percentage)
                     local rounded_number = 0
                     if settings.round_number then
                         rounded_number = math.floor(percentage)
@@ -1299,7 +1346,7 @@ function Library:create_ui(config: table)
                 return SliderManager
             end
 
-            function ModuleManager:create_textbox(settings: any)
+            function ModuleManager:create_textbox(settings)
                 LayoutOrderModule = LayoutOrderModule + 1
                 local TextboxManager = { _text = "" }
             
@@ -1344,7 +1391,7 @@ function Library:create_ui(config: table)
                 UICorner.CornerRadius = UDim.new(0, 4)
                 UICorner.Parent = Textbox
                 
-                function TextboxManager:update_text(text: string)
+                function TextboxManager:update_text(text)
                     self._text = text
                     Library._config._flags[settings.flag] = self._text
                     Config:save(game.GameId, Library._config)
@@ -1365,9 +1412,9 @@ function Library:create_ui(config: table)
                 return TextboxManager
             end
 
-            function ModuleManager:create_dropdown(settings: any)
+            function ModuleManager:create_dropdown(settings)
                 if not settings.Order then
-                    LayoutOrderModule = LayoutOrderModule + 1;
+                    LayoutOrderModule = LayoutOrderModule + 1
                 end
                 local DropdownManager = { _state = false, _size = 0 }
                 
@@ -1375,7 +1422,7 @@ function Library:create_ui(config: table)
                     if self._size == 0 then self._size = 11 end
                     self._size += 44
                     ModuleManager:refresh_size()
-                end;
+                end
 
                 local Dropdown = Instance.new('TextButton')
                 Dropdown.FontFace = Font.new('rbxasset://fonts/families/SourceSansPro.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
@@ -1661,8 +1708,8 @@ function Library:create_ui(config: table)
                 return DropdownManager
             end
             
-            function ModuleManager:create_divider(settings: any)
-                LayoutOrderModule = LayoutOrderModule + 1;
+            function ModuleManager:create_divider(settings)
+                LayoutOrderModule = LayoutOrderModule + 1
                 if self._size == 0 then self._size = 11 end
                 self._size += 27
                 ModuleManager:refresh_size()
@@ -1706,8 +1753,8 @@ function Library:create_ui(config: table)
                 return true
             end
 
-            function ModuleManager:create_paragraph(settings: any)
-                LayoutOrderModule = LayoutOrderModule + 1;
+            function ModuleManager:create_paragraph(settings)
+                LayoutOrderModule = LayoutOrderModule + 1
                 local ParagraphManager = {}
                 
                 if self._size == 0 then self._size = 11 end
@@ -1771,7 +1818,7 @@ function Library:create_ui(config: table)
                 return ParagraphManager
             end
 
-            function ModuleManager:create_text(settings: any)
+            function ModuleManager:create_text(settings)
                 LayoutOrderModule = LayoutOrderModule + 1
                 local TextManager = {}
             
@@ -1827,7 +1874,7 @@ function Library:create_ui(config: table)
             end
 
             function ModuleManager:create_feature(settings)
-                local checked = false;
+                local checked = false
                 LayoutOrderModule = LayoutOrderModule + 1
                 if self._size == 0 then self._size = 11 end
                 self._size += 20
@@ -1991,7 +2038,6 @@ function Library:create_ui(config: table)
                 return FeatureContainer
             end
 
-            -- Force a final resize after all elements are added
             task.defer(function()
                 ModuleManager:refresh_size()
             end)
@@ -2002,7 +2048,7 @@ function Library:create_ui(config: table)
         return TabManager
     end
 
-    Connections['library_visiblity'] = UserInputService.InputBegan:Connect(function(input: InputObject, process: boolean)
+    Connections['library_visiblity'] = UserInputService.InputBegan:Connect(function(input, process)
         if input.KeyCode ~= Enum.KeyCode.Insert then return end
         self._ui_open = not self._ui_open
         self:change_visiblity(self._ui_open)
@@ -2021,22 +2067,22 @@ function Library:build_interface_tab()
     local Container = self._container
     local Handler = self._handler
 
-    local Custom_Asset = getcustomasset or getsynasset
     local Background_Folder = 'AchaoticUI/AllusiveModified/Backgrounds'
-
-    if Custom_Asset and isfolder and not isfolder(Background_Folder) then
-        pcall(makefolder, Background_Folder)
-    end
 
     local function resolve_background(source)
         if source == '' then return '' end
-        if source:match('^%d+$')        then return 'rbxassetid://'..source end
-        if source:match('^rbx%a+://')   then return source end
-        if not Custom_Asset             then return '' end
+        if source:match('^%d+$') then return 'rbxassetid://'..source end
+        if source:match('^rbx%a+://') then return source end
+        local Custom_Asset = getcustomasset or getsynasset
+        if not Custom_Asset then return '' end
         if not source:match('^https?://') then
-            return (isfile and isfile(source) and Custom_Asset(source)) or ''
+            if isfile and isfile(source) then
+                return Custom_Asset(source)
+            end
+            return ''
         end
-        if not (writefile and isfile) then return '' end
+        if not (writefile and isfile and isfolder) then return '' end
+        if not isfolder(Background_Folder) then makefolder(Background_Folder) end
         local extension = source:match('%.(%a%a%a%a?)[%?#]') or source:match('%.(%a%a%a%a?)$') or 'png'
         local path = Background_Folder..'/'..source:gsub('%W', ''):sub(-48)..'.'..extension
         if not isfile(path) then
@@ -2163,7 +2209,6 @@ function Library:build_interface_tab()
                 self:Notify({title = 'Config', text = 'Enter a valid name.', duration = 3})
                 return
             end
-            if not isfolder('AchaoticUI/AllusiveModified/Configs') then makefolder('AchaoticUI/AllusiveModified/Configs') end
             Config:save('Configs/'..name, Library._config)
             config_dropdown:refresh(get_configs())
             config_dropdown:update(name)
@@ -2191,7 +2236,8 @@ function Library:build_interface_tab()
 
             for key, color in pairs(DefaultTheme) do
                 local saved = Library._config._flags['Theme_'..key]
-                if saved then                    Library:SetColor(key, Library:hexToRGB(saved))
+                if saved then
+                    Library:SetColor(key, Library:hexToRGB(saved))
                 end
             end
 
@@ -2210,7 +2256,7 @@ function Library:build_interface_tab()
             local name = Library._config._flags['Config_Saved_List']
             if typeof(name) ~= 'string' or name == '' then return end
             local path = 'AchaoticUI/AllusiveModified/Configs/'..name..'.json'
-            if isfile(path) then
+            if isfile and isfile(path) then
                 delfile(path)
                 config_dropdown:refresh(get_configs())
                 self:Notify({title = 'Config', text = 'Deleted '..name, duration = 3})
@@ -2559,7 +2605,7 @@ function Library:build_interface_tab()
             if not self._background then return end
             if state and self._background.Image ~= '' then
                 self._background.Visible = true
-                set_module_transparency((self._config._flags['Background_Module_Transparency'] or 0) / 100)
+                set_module_transparency((Library._config._flags['Background_Module_Transparency'] or 0) / 100)
             else
                 self._background.Visible = false
                 set_module_transparency(0)
@@ -2587,7 +2633,7 @@ function Library:build_interface_tab()
         'Preset 7','Preset 8','Preset 9','Preset 10','Preset 11',
     }
 
-    local Saved_Background_Id = self._config._flags['Background_Image_Id']
+    local Saved_Background_Id = Library._config._flags['Background_Image_Id']
     local Background_Image_Id = (typeof(Saved_Background_Id) == 'string' and Saved_Background_Id) or ''
     local Asset_Input
 
@@ -2603,7 +2649,7 @@ function Library:build_interface_tab()
             Background_Image_Id = source
             set_background_image(source)
             if Asset_Input then Asset_Input.Text = source end
-            self._config._flags['Background_Image_Id'] = source
+            Library._config._flags['Background_Image_Id'] = source
             self:SetBackground(source, self._background.ImageTransparency)
         end,
     })
@@ -2618,7 +2664,7 @@ function Library:build_interface_tab()
         callback = function(value)
             if not self._background then return end
             self._background.ImageTransparency = value / 100
-            self._config._flags['Background_Transparency'] = value / 100
+            Library._config._flags['Background_Transparency'] = value / 100
         end,
     })
 
@@ -2679,7 +2725,7 @@ function Library:build_interface_tab()
             Input.Text = source
             Background_Image_Id = source
             set_background_image(source)
-            self._config._flags['Background_Image_Id'] = source
+            Library._config._flags['Background_Image_Id'] = source
             self:SetBackground(source, self._background.ImageTransparency)
         end)
 
@@ -2690,7 +2736,7 @@ function Library:build_interface_tab()
             preset_dropdown:update('None')
             transparency_slider:set_percentage(50)
             module_transparency_slider:set_percentage(0)
-            self._config._flags['Background_Image_Id'] = ''
+            Library._config._flags['Background_Image_Id'] = ''
             self:SetBackground('', 0.5)
         end)
 
@@ -2703,7 +2749,7 @@ function Library:build_interface_tab()
     end
 
     set_background_image(Background_Image_Id)
-    set_module_transparency((self._config._flags['Background_Module_Transparency'] or 0) / 100)
+    set_module_transparency((Library._config._flags['Background_Module_Transparency'] or 0) / 100)
 
     local notif_module = InterfaceTab:create_module({
         title = 'Notifications',
@@ -2771,9 +2817,6 @@ function Library:build_interface_tab()
                 elseif v:IsA("Atmosphere") then
                     if OriginalSettings[v] == nil then OriginalSettings[v] = v.Density end
                     v.Density = 0
-                elseif v:IsA("Sky") then
-                    if OriginalSettings[v] == nil then OriginalSettings[v] = v.Parent end
-                    v.Parent = nil
                 end
             end
             for _,obj in ipairs(Workspace:GetDescendants()) do
@@ -2788,7 +2831,6 @@ function Library:build_interface_tab()
                     obj.Enabled = false
                 end
             end
-            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
         else
             pcall(function()
                 Lighting.GlobalShadows = true
@@ -2815,12 +2857,6 @@ function Library:build_interface_tab()
                     if OriginalSettings[obj] ~= nil then obj.Enabled = OriginalSettings[obj] end
                 end
             end
-            for obj, parent in pairs(OriginalSettings) do
-                if typeof(obj) == "Instance" and obj:IsA("Sky") then
-                    pcall(function() obj.Parent = parent end)
-                end
-            end
-            settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
             table.clear(OriginalSettings)
         end
     end
