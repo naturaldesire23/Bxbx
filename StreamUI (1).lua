@@ -67,7 +67,8 @@ local Library = {
     _keybind_list = {},
     _notif_side = "Right",
     _notif_opacity = 0.1,
-    _background = nil
+    _background = nil,
+    _interface_built = false
 }
 Library.__index = Library
 
@@ -205,7 +206,7 @@ function Library.SendNotification(settings)
     InnerFrame.Size = UDim2.new(1, 0, 1, 0)
     InnerFrame.Position = UDim2.new(Library._notif_side == "Left" and 1 or -1, 0, 0, 0)
     InnerFrame.BackgroundColor3 = Theme.Group
-    InnerFrame.BackgroundTransparency = Library._notif_opacity
+    InnerFrame.BackgroundTransparency = 1 - Library._notif_opacity
     InnerFrame.BorderSizePixel = 0
     InnerFrame.Name = "InnerFrame"
     InnerFrame.ZIndex = 501
@@ -581,6 +582,10 @@ function Library:create_ui(config)
                 self:SetColor(key, self:hexToRGB(saved))
             end
         end
+
+        if not self._interface_built then
+            self:build_interface_tab()
+        end
     end
 
     function self:update_tabs(tab)
@@ -805,10 +810,10 @@ function Library:create_ui(config)
             ModuleIcon.ImageColor3 = Theme.Accent
             ModuleIcon.ScaleType = Enum.ScaleType.Fit
             ModuleIcon.ImageTransparency = 0.3
-            ModuleIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+            ModuleIcon.AnchorPoint = Vector2.new(0, 0.5)
             ModuleIcon.Image = 'rbxassetid://79095934438045'
             ModuleIcon.BackgroundTransparency = 1
-            ModuleIcon.Position = UDim2.new(0.150, 0, 0.750, 0)
+            ModuleIcon.Position = UDim2.new(0.071, 0, 0.819, 0)
             ModuleIcon.Size = UDim2.new(0, 14, 0, 14)
             ModuleIcon.BorderSizePixel = 0
             ModuleIcon.Parent = Header
@@ -819,34 +824,26 @@ function Library:create_ui(config)
             Keybind.AutoButtonColor = false
             Keybind.Text = ''
             Keybind.BackgroundTransparency = 0.2
-            Keybind.Position = UDim2.new(0.350, 0, 0.750, 0)
+            Keybind.Position = UDim2.new(0.150, 0, 0.735, 0)
             Keybind.AnchorPoint = Vector2.new(0, 0.5)
-            Keybind.Size = UDim2.new(0, 40, 0, 16)
+            Keybind.Size = UDim2.new(0, 33, 0, 15)
             Keybind.BorderSizePixel = 0
-            Keybind.BackgroundColor3 = Theme.Control
+            Keybind.BackgroundColor3 = Theme.Accent
             Keybind.Parent = Header
-            table.insert(Library._elements, {obj = Keybind, prop = "BackgroundColor3", tKey = "Control"})
+            table.insert(Library._elements, {obj = Keybind, prop = "BackgroundColor3", tKey = "Accent"})
 
             local KeybindCorner = Instance.new('UICorner')
             KeybindCorner.CornerRadius = UDim.new(0, 3)
             KeybindCorner.Parent = Keybind
 
-            local KeybindStroke = Instance.new('UIStroke')
-            KeybindStroke.Color = Theme.GroupStroke
-            KeybindStroke.Transparency = 0.5
-            KeybindStroke.Thickness = 1
-            KeybindStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            KeybindStroke.Parent = Keybind
-            table.insert(Library._elements, {obj = KeybindStroke, prop = "Color", tKey = "GroupStroke"})
-
             local KeybindText = Instance.new('TextLabel')
             KeybindText.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-            KeybindText.TextColor3 = Theme.Text
+            KeybindText.TextColor3 = Color3.fromRGB(209, 222, 255)
             KeybindText.Text = 'None'
             KeybindText.AnchorPoint = Vector2.new(0.5, 0.5)
-            KeybindText.Size = UDim2.new(1, -6, 1, 0)
+            KeybindText.Size = UDim2.new(0, 25, 0, 13)
             KeybindText.BackgroundTransparency = 1
-            KeybindText.TextXAlignment = Enum.TextXAlignment.Center
+            KeybindText.TextXAlignment = Enum.TextXAlignment.Left
             KeybindText.Position = UDim2.new(0.5, 0, 0.5, 0)
             KeybindText.BorderSizePixel = 0
             KeybindText.TextSize = 10
@@ -885,7 +882,7 @@ function Library:create_ui(config)
             local Toggle = Instance.new('Frame')
             Toggle.Name = 'Toggle'
             Toggle.BackgroundTransparency = 0.2
-            Toggle.Position = UDim2.new(0.820, 0, 0.757, 0)
+            Toggle.Position = UDim2.new(0.819, 0, 0.757, 0)
             Toggle.Size = UDim2.new(0, 25, 0, 12)
             Toggle.BorderSizePixel = 0
             Toggle.BackgroundColor3 = Theme.Background
@@ -1017,9 +1014,11 @@ function Library:create_ui(config)
                     font_params.Size = 10
                     font_params.Width = 10000
                     local font_size = TextService:GetTextBoundsAsync(font_params)
-                    Keybind.Size = UDim2.fromOffset(math.max(40, font_size.X + 14), 16)
+                    Keybind.Size = UDim2.fromOffset(font_size.X + 6, 15)
+                    KeybindText.Size = UDim2.fromOffset(font_size.X, 13)
                 else
-                    Keybind.Size = UDim2.fromOffset(40, 16)
+                    Keybind.Size = UDim2.fromOffset(31, 15)
+                    KeybindText.Size = UDim2.fromOffset(25, 13)
                 end
             end
 
@@ -1058,7 +1057,7 @@ function Library:create_ui(config)
 
                 local function cancel_choose()
                     Library._choosing_keybind = false
-                    Keybind.BackgroundColor3 = Theme.Control
+                    Keybind.BackgroundColor3 = Theme.Accent
                     if Library._config._keybinds[settings.flag] then
                         KeybindText.Text = string.gsub(tostring(Library._config._keybinds[settings.flag]), 'Enum.KeyCode.', '')
                     else
@@ -2113,7 +2112,31 @@ function Library:create_ui(config)
         self:change_visiblity(self._ui_open)
     end)
 
-    self._ui.Container.Handler.Minimize.MouseButton1Click:Connect(function()
+    Minimize.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton3 then
+            if Library._choosing_keybind then return end
+            Library._choosing_keybind = true
+            Minimize.TextColor3 = Theme.Accent
+            
+            local conn
+            conn = UserInputService.InputBegan:Connect(function(keyInput, process)
+                if process then return end
+                if keyInput.KeyCode == Enum.KeyCode.Unknown then return end
+
+                if keyInput.KeyCode == Enum.KeyCode.Backspace then
+                    Library._config._keybinds['Minimize_Keybind'] = nil
+                else
+                    Library._config._keybinds['Minimize_Keybind'] = tostring(keyInput.KeyCode)
+                end
+                Config:save(tostring(game.PlaceId), Library._config)
+                Library._choosing_keybind = false
+                Minimize.TextColor3 = Theme.Text
+                if conn then conn:Disconnect() end
+            end)
+        end
+    end)
+
+    Minimize.MouseButton1Click:Connect(function()
         self._ui_open = not self._ui_open
         self:change_visiblity(self._ui_open)
     end)
@@ -2122,6 +2145,9 @@ function Library:create_ui(config)
 end
 
 function Library:build_interface_tab()
+    if self._interface_built then return end
+    self._interface_built = true
+
     local InterfaceTab = self:create_tab('Interface', 'rbxassetid://94381583400007')
     local Container = self._container
     local Handler = self._handler
@@ -2847,7 +2873,7 @@ function Library:build_interface_tab()
         flag = 'UI_Notif_Opacity',
         minimum_value = 0,
         maximum_value = 100,
-        value = 10,
+        value = 90,
         round_number = true,
         callback = function(value)
             Library._notif_opacity = value / 100
@@ -2862,117 +2888,11 @@ function Library:build_interface_tab()
         callback = function(state) end,
     })
 
-    local minimize_module = InterfaceTab:create_module({
+    settings_module:create_paragraph({
         title = 'Minimize Key',
-        flag = 'UI_Minimize_Key',
-        description = 'Press-to-bind the toggle key',
-        section = 'left',
-        callback = function(state) end,
+        text = 'Right-click the minimize button at the top left to set a custom toggle keybind.',
+        customScale = 60
     })
-
-    local MinimizeKeyManager = {}
-    local MinimizeKeyFrame = Instance.new('Frame')
-    MinimizeKeyFrame.Name = 'MinimizeKeyRow'
-    MinimizeKeyFrame.Size = UDim2.new(0, 207, 0, 26)
-    MinimizeKeyFrame.BackgroundTransparency = 1
-    MinimizeKeyFrame.BorderSizePixel = 0
-    MinimizeKeyFrame.Parent = find_module_frame('Minimize Key').Options
-
-    local MinimizeKeyLabel = Instance.new('TextLabel')
-    MinimizeKeyLabel.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-    MinimizeKeyLabel.TextSize = 11
-    MinimizeKeyLabel.TextColor3 = Theme.Text
-    MinimizeKeyLabel.Text = 'Toggle UI Key'
-    MinimizeKeyLabel.Size = UDim2.new(0, 120, 1, 0)
-    MinimizeKeyLabel.Position = UDim2.new(0, 0, 0, 0)
-    MinimizeKeyLabel.BackgroundTransparency = 1
-    MinimizeKeyLabel.TextXAlignment = Enum.TextXAlignment.Left
-    MinimizeKeyLabel.Parent = MinimizeKeyFrame
-    table.insert(self._elements, {obj = MinimizeKeyLabel, prop = "TextColor3", tKey = "Text"})
-
-    local MinimizeKeyBox = Instance.new('TextButton')
-    MinimizeKeyBox.Name = 'Keybox'
-    MinimizeKeyBox.AnchorPoint = Vector2.new(1, 0.5)
-    MinimizeKeyBox.Position = UDim2.new(1, 0, 0.5, 0)
-    MinimizeKeyBox.Size = UDim2.fromOffset(60, 20)
-    MinimizeKeyBox.BackgroundColor3 = Theme.Control
-    MinimizeKeyBox.BorderSizePixel = 0
-    MinimizeKeyBox.AutoButtonColor = false
-    MinimizeKeyBox.Text = ''
-    MinimizeKeyBox.Parent = MinimizeKeyFrame
-    table.insert(self._elements, {obj = MinimizeKeyBox, prop = "BackgroundColor3", tKey = "Control"})
-
-    local MinimizeKeyCorner = Instance.new('UICorner')
-    MinimizeKeyCorner.CornerRadius = UDim.new(0, 3)
-    MinimizeKeyCorner.Parent = MinimizeKeyBox
-
-    local MinimizeKeyStroke = Instance.new('UIStroke')
-    MinimizeKeyStroke.Color = Theme.GroupStroke
-    MinimizeKeyStroke.Transparency = 0.5
-    MinimizeKeyStroke.Thickness = 1
-    MinimizeKeyStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    MinimizeKeyStroke.Parent = MinimizeKeyBox
-    table.insert(self._elements, {obj = MinimizeKeyStroke, prop = "Color", tKey = "GroupStroke"})
-
-    local MinimizeKeyText = Instance.new('TextLabel')
-    MinimizeKeyText.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-    MinimizeKeyText.TextColor3 = Theme.Text
-    MinimizeKeyText.TextSize = 10
-    MinimizeKeyText.BackgroundTransparency = 1
-    MinimizeKeyText.Size = UDim2.new(1, -6, 1, 0)
-    MinimizeKeyText.Position = UDim2.new(0, 3, 0, 0)
-    MinimizeKeyText.TextXAlignment = Enum.TextXAlignment.Center
-    MinimizeKeyText.Parent = MinimizeKeyBox
-    table.insert(self._elements, {obj = MinimizeKeyText, prop = "TextColor3", tKey = "Text"})
-
-    local function refresh_minimize_text()
-        local saved = Library._config._keybinds['Minimize_Keybind']
-        if saved then
-            MinimizeKeyText.Text = string.gsub(tostring(saved), 'Enum.KeyCode.', '')
-        else
-            MinimizeKeyText.Text = 'Insert'
-        end
-    end
-    refresh_minimize_text()
-
-    MinimizeKeyBox.MouseButton1Click:Connect(function()
-        if Library._choosing_keybind then return end
-        Library._choosing_keybind = true
-        MinimizeKeyText.Text = '...'
-        MinimizeKeyBox.BackgroundColor3 = Theme.ControlHover
-
-        local conn
-        conn = UserInputService.InputBegan:Connect(function(input, process)
-            if process then return end
-            if input.KeyCode == Enum.KeyCode.Unknown then return end
-
-            if input.KeyCode == Enum.KeyCode.Backspace then
-                Library._config._keybinds['Minimize_Keybind'] = nil
-            else
-                Library._config._keybinds['Minimize_Keybind'] = tostring(input.KeyCode)
-            end
-            Config:save(tostring(game.PlaceId), Library._config)
-            Library._choosing_keybind = false
-            MinimizeKeyBox.BackgroundColor3 = Theme.Control
-            refresh_minimize_text()
-            if conn then conn:Disconnect() end
-            if Connections['minimize_key_cancel'] then
-                Connections['minimize_key_cancel']:Disconnect()
-                Connections['minimize_key_cancel'] = nil
-            end
-        end)
-        
-        Connections['minimize_key_cancel'] = UserInputService.InputBegan:Connect(function(input, process)
-            if process then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                Library._choosing_keybind = false
-                MinimizeKeyBox.BackgroundColor3 = Theme.Control
-                refresh_minimize_text()
-                if conn then conn:Disconnect() end
-                Connections['minimize_key_cancel']:Disconnect()
-            end
-        end)
-    end)
 
     return InterfaceTab
 end
