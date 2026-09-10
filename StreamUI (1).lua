@@ -1,23 +1,4 @@
--- ============================================================
--- FIXES vs previous build:
---  1. Module keybind icon centered on keybind box
---  2. Minimize Key: press-to-bind (not type)
---  3. Removed duplicate UI Toggle checkbox from Settings
---  4. UI Transparency slider added to Appearance
---  5. Notifications fixed (container off-screen bug)
---  6. Textbox/dropdown heights fixed
---  7. Custom background applies correctly
---  8. Configs save per-profile (no override, persists)
---  9. Fixed image clipping corners
--- 10. Fixed UI transparency slider (removed gradient override)
--- 11. Fixed minimize keybind getting stuck
--- 12. Fixed dropdown choices not showing (ZIndex)
--- 13. Fixed module scrolling (Options is now a ScrollingFrame)
--- 14. Fixed feature keybinds not showing in keybind list
--- 15. Fixed text/label overlapping in module headers
--- ============================================================
-
-local GG = {
+getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
         CheckboxDisabled = "Disabled",
@@ -37,32 +18,32 @@ local GG = {
     }
 }
 
-local SelectedLanguage = GG.Language
+local SelectedLanguage = getgenv().GG.Language
 
-local UserInputService = cloneref and cloneref(game:GetService('UserInputService')) or game:GetService('UserInputService')
-local ContentProvider = cloneref and cloneref(game:GetService('ContentProvider')) or game:GetService('ContentProvider')
-local TweenService = cloneref and cloneref(game:GetService('TweenService')) or game:GetService('TweenService')
-local HttpService = cloneref and cloneref(game:GetService('HttpService')) or game:GetService('HttpService')
-local TextService = cloneref and cloneref(game:GetService('TextService')) or game:GetService('TextService')
-local RunService = cloneref and cloneref(game:GetService('RunService')) or game:GetService('RunService')
-local Lighting = cloneref and cloneref(game:GetService('Lighting')) or game:GetService('Lighting')
-local Players = cloneref and cloneref(game:GetService('Players')) or game:GetService('Players')
-local CoreGui = cloneref and cloneref(game:GetService('CoreGui')) or game:GetService('CoreGui')
-local Debris = cloneref and cloneref(game:GetService('Debris')) or game:GetService('Debris')
-local GuiService = cloneref and cloneref(game:GetService('GuiService')) or game:GetService('GuiService')
-local Workspace = cloneref and cloneref(game:GetService('Workspace')) or game:GetService('Workspace')
+local UserInputService = cloneref(game:GetService('UserInputService'))
+local ContentProvider = cloneref(game:GetService('ContentProvider'))
+local TweenService = cloneref(game:GetService('TweenService'))
+local HttpService = cloneref(game:GetService('HttpService'))
+local TextService = cloneref(game:GetService('TextService'))
+local RunService = cloneref(game:GetService('RunService'))
+local Lighting = cloneref(game:GetService('Lighting'))
+local Players = cloneref(game:GetService('Players'))
+local CoreGui = cloneref(game:GetService('CoreGui'))
+local Debris = cloneref(game:GetService('Debris'))
+local GuiService = cloneref(game:GetService('GuiService'))
+local Workspace = cloneref(game:GetService('Workspace'))
 
 local mouse = Players.LocalPlayer:GetMouse()
 
 local DefaultTheme = {
-    Background = Color3.fromRGB(10, 16, 20),
-    Group = Color3.fromRGB(16, 24, 30),
-    GroupStroke = Color3.fromRGB(46, 72, 84),
-    Control = Color3.fromRGB(24, 36, 44),
-    ControlHover = Color3.fromRGB(34, 50, 60),
-    Text = Color3.fromRGB(220, 235, 240),
-    TextDim = Color3.fromRGB(150, 172, 182),
-    Accent = Color3.fromRGB(120, 220, 235),
+    Background = Color3.fromRGB(12, 13, 15),
+    Group = Color3.fromRGB(22, 28, 38),
+    GroupStroke = Color3.fromRGB(52, 66, 89),
+    Control = Color3.fromRGB(32, 38, 51),
+    ControlHover = Color3.fromRGB(42, 50, 66),
+    Text = Color3.fromRGB(210, 210, 210),
+    TextDim = Color3.fromRGB(180, 180, 180),
+    Accent = Color3.fromRGB(161, 208, 42),
 }
 
 local Theme = {}
@@ -71,7 +52,7 @@ for k, v in pairs(DefaultTheme) do
 end
 
 local Library = {
-    _config = { _flags = {}, _keybinds = {}, _library = {} },
+    _config = nil,
     _choosing_keybind = false,
     _device = nil,
     _ui_open = true,
@@ -82,23 +63,28 @@ local Library = {
     _drag_start = nil,
     _container_position = nil,
     _elements = {},
-    _background = nil,
-    _container = nil,
-    _handler = nil,
     _flag_registry = {},
     _keybind_list = {},
     _notif_side = "Right",
-    _notif_opacity = 0
+    _notif_opacity = 0.1,
+    _background = nil
 }
 Library.__index = Library
 
+function Library:RandomString()
+    return string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))..string.char(math.random(60,120))
+end
+
+local UIACProtection = protect_gui or protectgui or (syn and syn.protect_gui) or function() end
+local UIName = Library:RandomString()
+
 local SecureScreenGui = Instance.new('ScreenGui')
-SecureScreenGui.Name = "GameUI"
-SecureScreenGui.Parent = CoreGui
+SecureScreenGui.Name = UIName
+SecureScreenGui.Parent = (gethui and gethui()) or CoreGui
 SecureScreenGui.ResetOnSpawn = false
 SecureScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-if protect_gui then pcall(protect_gui, SecureScreenGui) end
+UIACProtection(SecureScreenGui)
 
 function convertStringToTable(inputString)
     local result = {}
@@ -111,6 +97,10 @@ end
 
 function convertTableToString(inputTable)
     return table.concat(inputTable, ", ")
+end
+
+if not isfolder("AchaoticUI/AllusiveModified") then
+    makefolder("AchaoticUI/AllusiveModified")
 end
 
 local Connections = setmetatable({
@@ -127,55 +117,46 @@ local Connections = setmetatable({
     end
 }, Connections)
 
-local CONFIG_DIR = 'AchaoticUI/AllusiveModified'
-
 local Config = setmetatable({
-    _ensure_dir = function()
-        if not (writefile and isfolder) then return end
-        if not isfolder(CONFIG_DIR) then
-            pcall(makefolder, CONFIG_DIR)
-        end
-        if not isfolder(CONFIG_DIR..'/Configs') then
-            pcall(makefolder, CONFIG_DIR..'/Configs')
-        end
-    end,
     save = function(self, file_name, config)
-        if not (writefile and isfolder) then return end
-        self:_ensure_dir()
         local success_save, result = pcall(function()
             local flags = HttpService:JSONEncode(config)
-            writefile(CONFIG_DIR..'/'..file_name..'.json', flags)
+            writefile('AchaoticUI/AllusiveModified/'..file_name..'.json', flags)
         end)
         if not success_save then warn('failed to save config', result) end
     end,
     load = function(self, file_name, config)
-        if not (isfile and readfile) then return config end
         local success_load, result = pcall(function()
-            if not isfile(CONFIG_DIR..'/'..file_name..'.json') then
-                return config
+            if not isfile('AchaoticUI/AllusiveModified/'..file_name..'.json') then
+                self:save(file_name, config)
+                return
             end
-            local flags = readfile(CONFIG_DIR..'/'..file_name..'.json')
-            if not flags then return config end
+            local flags = readfile('AchaoticUI/AllusiveModified/'..file_name..'.json')
+            if not flags then
+                self:save(file_name, config)
+                return
+            end
             return HttpService:JSONDecode(flags)
         end)
-        if not success_load then return config end
+        if not success_load then warn('failed to load config', result) end
         if not result then
-            result = { _flags = {}, _keybinds = {}, _library = {} }
+            result = { _flags = {}, _keybinds = {} }
         end
         return result
     end
 }, Config)
 
+Library._config = Config:load(tostring(game.PlaceId), { _flags = {}, _keybinds = {} })
+
 function Library.new(config)
     local self = setmetatable({
-        _loaded = false, _tab = 0,
+        _loaded = false,
+        _tab = 0,
     }, Library)
-
-    Library._config = Config:load(tostring(game.PlaceId), { _flags = {}, _keybinds = {}, _library = {} })
 
     local currentconfig = config or {
         title = "Achaotic",
-        PrimaryColor = Color3.fromRGB(120, 220, 235),
+        PrimaryColor = Color3.fromRGB(161, 208, 42),
     }
     
     Theme.Accent = currentconfig.PrimaryColor
@@ -194,12 +175,12 @@ NotificationContainer.AnchorPoint = Vector2.new(1, 1)
 NotificationContainer.Position = UDim2.new(1, -22, 1, -22)
 NotificationContainer.ZIndex = 500
 
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.FillDirection = Enum.FillDirection.Vertical
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Padding = UDim.new(0, 8)
-UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-UIListLayout.Parent = NotificationContainer
+local UIListLayout_Notif = Instance.new("UIListLayout")
+UIListLayout_Notif.FillDirection = Enum.FillDirection.Vertical
+UIListLayout_Notif.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout_Notif.Padding = UDim.new(0, 8)
+UIListLayout_Notif.VerticalAlignment = Enum.VerticalAlignment.Bottom
+UIListLayout_Notif.Parent = NotificationContainer
 
 local function UpdateNotificationPosition()
     if Library._notif_side == "Left" then
@@ -231,20 +212,8 @@ function Library.SendNotification(settings)
     InnerFrame.Parent = Notification
     table.insert(Library._elements, {obj = InnerFrame, prop = "BackgroundColor3", tKey = "Group"})
 
-    local InnerGradient = Instance.new("UIGradient")
-    InnerGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
-    }
-    InnerGradient.Transparency = NumberSequence.new{
-        NumberSequenceKeypoint.new(0, 0.92),
-        NumberSequenceKeypoint.new(1, 1)
-    }
-    InnerGradient.Rotation = 90
-    InnerGradient.Parent = InnerFrame
-
     local InnerUICorner = Instance.new("UICorner")
-    InnerUICorner.CornerRadius = UDim.new(0, 8)
+    InnerUICorner.CornerRadius = UDim.new(0, 4)
     InnerUICorner.Parent = InnerFrame
 
     local InnerStroke = Instance.new("UIStroke")
@@ -272,8 +241,8 @@ function Library.SendNotification(settings)
     Title.Text = settings.title or "Notification"
     Title.TextColor3 = Theme.Text
     Title.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-    Title.TextSize = 15
-    Title.Size = UDim2.new(1, -25, 0, 18)
+    Title.TextSize = 14
+    Title.Size = UDim2.new(1, -25, 0, 20)
     Title.Position = UDim2.new(0, 15, 0, 8)
     Title.BackgroundTransparency = 1
     Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -288,12 +257,12 @@ function Library.SendNotification(settings)
     Body.TextColor3 = Theme.TextDim
     Body.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
     Body.TextSize = 12
-    Body.Size = UDim2.new(1, -25, 0, 14)
-    Body.Position = UDim2.new(0, 15, 0, 32)
+    Body.Size = UDim2.new(1, -25, 0, 30)
+    Body.Position = UDim2.new(0, 15, 0, 28)
     Body.BackgroundTransparency = 1
     Body.TextXAlignment = Enum.TextXAlignment.Left
-    Body.TextYAlignment = Enum.TextYAlignment.Center
-    Body.TextTruncate = Enum.TextTruncate.AtEnd
+    Body.TextYAlignment = Enum.TextYAlignment.Top
+    Body.TextWrapped = true
     Body.ZIndex = 502
     Body.Parent = InnerFrame
     table.insert(Library._elements, {obj = Body, prop = "TextColor3", tKey = "TextDim"})
@@ -317,39 +286,6 @@ end
 
 function Library:Notify(settings)
     Library.SendNotification(settings)
-end
-
-function Library:get_screen_scale()
-    local viewport_size_x = workspace.CurrentCamera.ViewportSize.X
-    self._ui_scale = viewport_size_x / 1400
-end
-
-function Library:get_device()
-    local device = 'Unknown'
-    if not UserInputService.TouchEnabled and UserInputService.KeyboardEnabled and UserInputService.MouseEnabled then
-        device = 'PC'
-    elseif UserInputService.TouchEnabled then
-        device = 'Mobile'
-    elseif UserInputService.GamepadEnabled then
-        device = 'Console'
-    end
-    self._device = device
-end
-
-function Library:removed(action)
-    self._ui.AncestryChanged:Once(action)
-end
-
-function Library:flag_type(flag, flag_type)
-    if Library._config._flags[flag] == nil then return end
-    return typeof(Library._config._flags[flag]) == flag_type
-end
-
-function Library:remove_table_value(__table, table_value)
-    for index, value in __table do
-        if value ~= table_value then continue end
-        table.remove(__table, index)
-    end
 end
 
 function Library:hexToRGB(hex)
@@ -387,6 +323,39 @@ function Library:SetBackground(source, transparency)
     Config:save(tostring(game.PlaceId), Library._config)
 end
 
+function Library:get_screen_scale()
+    local viewport_size_x = workspace.CurrentCamera.ViewportSize.X
+    self._ui_scale = viewport_size_x / 1400
+end
+
+function Library:get_device()
+    local device = 'Unknown'
+    if not UserInputService.TouchEnabled and UserInputService.KeyboardEnabled and UserInputService.MouseEnabled then
+        device = 'PC'
+    elseif UserInputService.TouchEnabled then
+        device = 'Mobile'
+    elseif UserInputService.GamepadEnabled then
+        device = 'Console'
+    end
+    self._device = device
+end
+
+function Library:removed(action)
+    self._ui.AncestryChanged:Once(action)
+end
+
+function Library:flag_type(flag, flag_type)
+    if Library._config._flags[flag] == nil then return end
+    return typeof(Library._config._flags[flag]) == flag_type
+end
+
+function Library:remove_table_value(__table, table_value)
+    for index, value in __table do
+        if value ~= table_value then continue end
+        table.remove(__table, index)
+    end
+end
+
 function Library:create_ui(config)
     local Container = Instance.new('Frame')
     Container.ClipsDescendants = true
@@ -403,54 +372,16 @@ function Library:create_ui(config)
     self._container = Container
     table.insert(Library._elements, {obj = Container, prop = "BackgroundColor3", tKey = "Background"})
 
-    local ShadowHolder = Instance.new('Frame')
-    ShadowHolder.Name = 'ShadowHolder'
-    ShadowHolder.AnchorPoint = Container.AnchorPoint
-    ShadowHolder.Position = Container.Position
-    ShadowHolder.Size = Container.Size
-    ShadowHolder.BackgroundTransparency = 1
-    ShadowHolder.BorderSizePixel = 0
-    ShadowHolder.ZIndex = 0
-    ShadowHolder.Parent = SecureScreenGui
-    ShadowHolder.Visible = false
-
-    local ShadowOuter = Instance.new('ImageLabel')
-    ShadowOuter.Name = 'SoftShadowOuter'
-    ShadowOuter.AnchorPoint = Vector2.new(0.5, 0.5)
-    ShadowOuter.Position = UDim2.new(0.5, 0, 0.5, 2)
-    ShadowOuter.Size = UDim2.new(1, 58, 1, 58)
-    ShadowOuter.BackgroundTransparency = 1
-    ShadowOuter.BorderSizePixel = 0
-    ShadowOuter.Image = 'rbxassetid://6014261993'
-    ShadowOuter.ImageColor3 = Color3.fromRGB(0, 0, 0)
-    ShadowOuter.ImageTransparency = 0.45
-    ShadowOuter.ScaleType = Enum.ScaleType.Slice
-    ShadowOuter.SliceCenter = Rect.new(49, 49, 450, 450)
-    ShadowOuter.ZIndex = 0
-    ShadowOuter.Parent = ShadowHolder
-
-    local ShadowInner = Instance.new('ImageLabel')
-    ShadowInner.Name = 'SoftShadowInner'
-    ShadowInner.AnchorPoint = Vector2.new(0.5, 0.5)
-    ShadowInner.Position = UDim2.new(0.5, 0, 0.5, 1)
-    ShadowInner.Size = UDim2.new(1, 32, 1, 32)
-    ShadowInner.BackgroundTransparency = 1
-    ShadowInner.BorderSizePixel = 0
-    ShadowInner.Image = 'rbxassetid://6014261993'
-    ShadowInner.ImageColor3 = Color3.fromRGB(0, 0, 0)
-    ShadowInner.ImageTransparency = 0.3
-    ShadowInner.ScaleType = Enum.ScaleType.Slice
-    ShadowInner.SliceCenter = Rect.new(49, 49, 450, 450)
-    ShadowInner.ZIndex = 0
-    ShadowInner.Parent = ShadowHolder
-
-    Container:GetPropertyChangedSignal('Position'):Connect(function()
-        ShadowHolder.Position = Container.Position
-    end)
-
-    Container:GetPropertyChangedSignal('Size'):Connect(function()
-        ShadowHolder.Size = Container.Size
-    end)
+    local UICorner = Instance.new('UICorner')
+    UICorner.CornerRadius = UDim.new(0, 10)
+    UICorner.Parent = Container
+    
+    local UIStroke = Instance.new('UIStroke')
+    UIStroke.Color = Theme.GroupStroke
+    UIStroke.Transparency = 0.5
+    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    UIStroke.Parent = Container
+    table.insert(Library._elements, {obj = UIStroke, prop = "Color", tKey = "GroupStroke"})
 
     local Background = Instance.new("ImageLabel")
     Background.Name = "Background"
@@ -463,21 +394,10 @@ function Library:create_ui(config)
     Background.Visible = false
     Background.ZIndex = 0
     self._background = Background
-
+    
     local BgCorner = Instance.new('UICorner')
     BgCorner.CornerRadius = UDim.new(0, 10)
     BgCorner.Parent = Background
-    
-    local UICorner = Instance.new('UICorner')
-    UICorner.CornerRadius = UDim.new(0, 10)
-    UICorner.Parent = Container
-    
-    local UIStroke = Instance.new('UIStroke')
-    UIStroke.Color = Theme.GroupStroke
-    UIStroke.Transparency = 0.5
-    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    UIStroke.Parent = Container
-    table.insert(Library._elements, {obj = UIStroke, prop = "Color", tKey = "GroupStroke"})
     
     local Handler = Instance.new('Frame')
     Handler.BackgroundTransparency = 1
@@ -501,14 +421,14 @@ function Library:create_ui(config)
     Tabs.CanvasSize = UDim2.new(0, 0, 0.5, 0)
     Tabs.Parent = Handler
     
-    local UIListLayout = Instance.new('UIListLayout')
-    UIListLayout.Padding = UDim.new(0, 4)
-    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    UIListLayout.Parent = Tabs
+    local UIListLayout_Tabs = Instance.new('UIListLayout')
+    UIListLayout_Tabs.Padding = UDim.new(0, 4)
+    UIListLayout_Tabs.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout_Tabs.Parent = Tabs
     
     local ClientName = Instance.new('TextLabel')
     ClientName.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-    ClientName.TextColor3 = config.PrimaryColor
+    ClientName.TextColor3 = Theme.Accent
     ClientName.TextTransparency = 0.2
     ClientName.Text = config.title
     ClientName.Name = 'ClientName'
@@ -526,7 +446,7 @@ function Library:create_ui(config)
     Pin.Position = UDim2.new(0.026, 0, 0.136, 0)
     Pin.Size = UDim2.new(0, 2, 0, 16)
     Pin.BorderSizePixel = 0
-    Pin.BackgroundColor3 = config.PrimaryColor
+    Pin.BackgroundColor3 = Theme.Accent
     Pin.Parent = Handler
     table.insert(Library._elements, {obj = Pin, prop = "BackgroundColor3", tKey = "Accent"})
     
@@ -535,7 +455,7 @@ function Library:create_ui(config)
     UICorner2.Parent = Pin
     
     local Icon = Instance.new('ImageLabel')
-    Icon.ImageColor3 = config.PrimaryColor
+    Icon.ImageColor3 = Theme.Accent
     Icon.ScaleType = Enum.ScaleType.Fit
     Icon.AnchorPoint = Vector2.new(0, 0.5)
     Icon.Image = 'rbxassetid://107819132007001'
@@ -575,10 +495,7 @@ function Library:create_ui(config)
     table.insert(Library._elements, {obj = Minimize, prop = "TextColor3", tKey = "Text"})
     
     local UIScale = Instance.new('UIScale')
-    UIScale.Parent = Container
-    
-    local ShadowScale = Instance.new('UIScale')
-    ShadowScale.Parent = ShadowHolder
+    UIScale.Parent = Container    
     
     self._ui = SecureScreenGui
 
@@ -616,20 +533,7 @@ function Library:create_ui(config)
         Connections:disconnect_all()
     end)
 
-    function self:Update1Run(a)
-        if a == "nil" then
-            Container.BackgroundTransparency = 0.05
-        else
-            pcall(function() Container.BackgroundTransparency = tonumber(a) end)
-        end
-    end
-
-    function self:UIVisiblity()
-        SecureScreenGui.Enabled = not SecureScreenGui.Enabled
-    end
-
     function self:change_visiblity(state)
-        ShadowHolder.Visible = state
         if state then
             TweenService:Create(Container, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 Size = UDim2.fromOffset(698, 479)
@@ -638,27 +542,6 @@ function Library:create_ui(config)
             TweenService:Create(Container, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 Size = UDim2.fromOffset(104.5, 52)
             }):Play()
-        end
-    end
-
-    function self:set_gui_visibility(state)
-        if not self._ui then return end
-        if state then
-            self._ui.Enabled = true
-            Container.Size = UDim2.fromOffset(0, 0)
-            ShadowHolder.Visible = true
-            TweenService:Create(Container, TweenInfo.new(0.35, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
-                Size = UDim2.fromOffset(698, 479)
-            }):Play()
-        else
-            local t = TweenService:Create(Container, TweenInfo.new(0.25, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {
-                Size = UDim2.fromOffset(0, 0)
-            })
-            t:Play()
-            t.Completed:Once(function()
-                self._ui.Enabled = false
-                ShadowHolder.Visible = false
-            end)
         end
     end
 
@@ -674,16 +557,12 @@ function Library:create_ui(config)
         if self._device == 'Mobile' or self._device == 'Unknown' then
             self:get_screen_scale()
             UIScale.Scale = self._ui_scale
-            ShadowScale.Scale = self._ui_scale
             Connections['ui_scale'] = workspace.CurrentCamera:GetPropertyChangedSignal('ViewportSize'):Connect(function()
                 self:get_screen_scale()
                 UIScale.Scale = self._ui_scale
-                ShadowScale.Scale = self._ui_scale
             end)
         end
     
-        ShadowHolder.Visible = true
-
         TweenService:Create(Container, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
             Size = UDim2.fromOffset(698, 479)
         }):Play()
@@ -2231,19 +2110,11 @@ function Library:create_ui(config)
         local key = Library._config._keybinds['Minimize_Keybind'] or "Enum.KeyCode.Insert"
         if tostring(input.KeyCode) ~= key then return end
         self._ui_open = not self._ui_open
-        if Library._config._flags['UI_Gui_Visible'] then
-            self:set_gui_visibility(self._ui_open)
-            return
-        end
         self:change_visiblity(self._ui_open)
     end)
 
     self._ui.Container.Handler.Minimize.MouseButton1Click:Connect(function()
         self._ui_open = not self._ui_open
-        if Library._config._flags['UI_Gui_Visible'] then
-            self:set_gui_visibility(self._ui_open)
-            return
-        end
         self:change_visiblity(self._ui_open)
     end)
 
@@ -2795,28 +2666,6 @@ function Library:build_interface_tab()
         end
     end
 
-    local transparency_module = InterfaceTab:create_module({
-        title = 'UI Transparency',
-        flag = 'UI_Transparency_Module',
-        description = 'Adjust overall container opacity',
-        section = 'left',
-        callback = function(state) end,
-    })
-
-    transparency_module:create_slider({
-        title = 'Container Opacity',
-        flag = 'UI_Container_Transparency',
-        minimum_value = 0,
-        maximum_value = 100,
-        value = 5,
-        round_number = true,
-        callback = function(value)
-            if self._container then
-                self._container.BackgroundTransparency = value / 100
-            end
-        end,
-    })
-
     local image_module = InterfaceTab:create_module({
         title = 'Background',
         flag = 'UI_Background',
@@ -2998,7 +2847,7 @@ function Library:build_interface_tab()
         flag = 'UI_Notif_Opacity',
         minimum_value = 0,
         maximum_value = 100,
-        value = 0,
+        value = 10,
         round_number = true,
         callback = function(value)
             Library._notif_opacity = value / 100
@@ -3010,12 +2859,6 @@ function Library:build_interface_tab()
         flag = 'UI_Settings',
         description = 'UI Behavior and Overlay',
         section = 'left',
-        callback = function(state) end,
-    })
-
-    settings_module:create_checkbox({
-        title = 'Hide on Minimize',
-        flag = 'UI_Gui_Visible',
         callback = function(state) end,
     })
 
@@ -3130,463 +2973,6 @@ function Library:build_interface_tab()
             end
         end)
     end)
-
-    local OriginalSettings = {}
-    local function FpsBooster(state)
-        if state then
-            pcall(function()
-                Lighting.GlobalShadows = false
-                Lighting.FogEnd = 1e9
-                Lighting.Brightness = 1
-                Lighting.Ambient = Color3.fromRGB(140,140,140)
-                Lighting.OutdoorAmbient = Color3.fromRGB(140,140,140)
-                Lighting.EnvironmentDiffuseScale = 0
-                Lighting.EnvironmentSpecularScale = 0
-            end)
-            for _,v in ipairs(Lighting:GetChildren()) do
-                if v:IsA("PostEffect") then
-                    if OriginalSettings[v] == nil then OriginalSettings[v] = v.Enabled end
-                    v.Enabled = false
-                elseif v:IsA("Atmosphere") then
-                    if OriginalSettings[v] == nil then OriginalSettings[v] = v.Density end
-                    v.Density = 0
-                end
-            end
-            for _,obj in ipairs(Workspace:GetDescendants()) do
-                if obj:IsA("BasePart") then
-                    if OriginalSettings[obj] == nil then OriginalSettings[obj] = obj.CastShadow end
-                    obj.CastShadow = false
-                elseif obj:IsA("Decal") or obj:IsA("Texture") then
-                    if OriginalSettings[obj] == nil then OriginalSettings[obj] = obj.Transparency end
-                    obj.Transparency = 1
-                elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Explosion") or obj:IsA("Smoke") or obj:IsA("Fire") then
-                    if OriginalSettings[obj] == nil then OriginalSettings[obj] = obj.Enabled end
-                    obj.Enabled = false
-                end
-            end
-        else
-            pcall(function()
-                Lighting.GlobalShadows = true
-                Lighting.FogEnd = 100000
-                Lighting.Brightness = 2
-                Lighting.Ambient = Color3.fromRGB(128, 128, 128)
-                Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
-                Lighting.EnvironmentDiffuseScale = 1
-                Lighting.EnvironmentSpecularScale = 1
-            end)
-            for _,v in ipairs(Lighting:GetChildren()) do
-                if v:IsA("PostEffect") then
-                    if OriginalSettings[v] ~= nil then v.Enabled = OriginalSettings[v] end
-                elseif v:IsA("Atmosphere") then
-                    if OriginalSettings[v] ~= nil then v.Density = OriginalSettings[v] end
-                end
-            end
-            for _,obj in ipairs(Workspace:GetDescendants()) do
-                if obj:IsA("BasePart") then
-                    if OriginalSettings[obj] ~= nil then obj.CastShadow = OriginalSettings[obj] end
-                elseif obj:IsA("Decal") or obj:IsA("Texture") then
-                    if OriginalSettings[obj] ~= nil then obj.Transparency = OriginalSettings[obj] end
-                elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Explosion") or obj:IsA("Smoke") or obj:IsA("Fire") then
-                    if OriginalSettings[obj] ~= nil then obj.Enabled = OriginalSettings[obj] end
-                end
-            end
-            table.clear(OriginalSettings)
-        end
-    end
-
-    settings_module:create_checkbox({
-        title = 'FPS Booster',
-        flag = 'UI_FPS_Booster',
-        callback = function(state) 
-            FpsBooster(state)
-        end,
-    })
-
-    local StatsOverlayState = {samples={}, maxSamples=24, ping=0, fps=0}
-    
-    local OverlayGui = Instance.new("ScreenGui")
-    OverlayGui.Name = "TelemetryOverlay"
-    OverlayGui.ResetOnSpawn = false
-    OverlayGui.IgnoreGuiInset = true
-    OverlayGui.DisplayOrder = 99
-    OverlayGui.Parent = CoreGui
-    
-    local GraphPanel = Instance.new("Frame")
-    GraphPanel.Size = UDim2.new(0, 184, 0, 76)
-    GraphPanel.Position = UDim2.new(0, 20, 0.5, -38)
-    GraphPanel.BackgroundColor3 = Theme.Group
-    GraphPanel.BorderSizePixel = 0
-    GraphPanel.Active = true
-    GraphPanel.Visible = false
-    GraphPanel.Parent = OverlayGui
-    table.insert(Library._elements, {obj = GraphPanel, prop = "BackgroundColor3", tKey = "Group"})
-    
-    local GraphPanelCorner = Instance.new("UICorner", GraphPanel)
-    GraphPanelCorner.CornerRadius = UDim.new(0, 7)
-    
-    local GraphStroke = Instance.new("UIStroke", GraphPanel)
-    GraphStroke.Color = Theme.GroupStroke
-    GraphStroke.Transparency = 0.5
-    GraphStroke.Thickness = 1
-    table.insert(Library._elements, {obj = GraphStroke, prop = "Color", tKey = "GroupStroke"})
-    
-    local PingValue = Instance.new("TextLabel", GraphPanel)
-    PingValue.Size = UDim2.new(0, 82, 0, 21)
-    PingValue.Position = UDim2.new(1, -91, 0, 4)
-    PingValue.BackgroundTransparency = 1
-    PingValue.Font = Enum.Font.GothamBold
-    PingValue.Text = "0 ms"
-    PingValue.TextColor3 = Theme.Text
-    PingValue.TextSize = 15
-    PingValue.TextXAlignment = Enum.TextXAlignment.Right
-    table.insert(Library._elements, {obj = PingValue, prop = "TextColor3", tKey = "Text"})
-    
-    local GraphArea = Instance.new("Frame", GraphPanel)
-    GraphArea.Size = UDim2.new(1, -18, 0, 38)
-    GraphArea.Position = UDim2.new(0, 9, 0, 32)
-    GraphArea.BackgroundTransparency = 1
-    GraphArea.BorderSizePixel = 0
-    GraphArea.ClipsDescendants = true
-    
-    local Bars = {}
-    for index = 1, StatsOverlayState.maxSamples do
-        local Bar = Instance.new("Frame", GraphArea)
-        Bar.AnchorPoint = Vector2.new(0, 1)
-        Bar.Size = UDim2.new(0, 7, 0, 5)
-        Bar.Position = UDim2.new(0, (index-1)*7, 1, -4)
-        Bar.BackgroundColor3 = Theme.Accent
-        Bar.BorderSizePixel = 0
-        Bar.ZIndex = 2
-        table.insert(Library._elements, {obj = Bar, prop = "BackgroundColor3", tKey = "Accent"})
-        Bars[index] = Bar
-    end
-
-    local FpsPanel = Instance.new("Frame", OverlayGui)
-    FpsPanel.Size = UDim2.new(0, 140, 0, 34)
-    FpsPanel.Position = UDim2.new(0, 20, 0.5, 44)
-    FpsPanel.BackgroundColor3 = Theme.Group
-    FpsPanel.BorderSizePixel = 0
-    FpsPanel.Active = true
-    FpsPanel.Visible = false
-    table.insert(Library._elements, {obj = FpsPanel, prop = "BackgroundColor3", tKey = "Group"})
-    local FpsPanelCorner = Instance.new("UICorner", FpsPanel)
-    FpsPanelCorner.CornerRadius = UDim.new(0, 12)
-    
-    local FpsStroke = Instance.new("UIStroke", FpsPanel)
-    FpsStroke.Color = Theme.GroupStroke
-    FpsStroke.Transparency = 0.5
-    FpsStroke.Thickness = 1
-    table.insert(Library._elements, {obj = FpsStroke, prop = "Color", tKey = "GroupStroke"})
-    
-    local FpsValue = Instance.new("TextLabel", FpsPanel)
-    FpsValue.Size = UDim2.new(0, 68, 1, 0)
-    FpsValue.Position = UDim2.new(0, 14, 0, 0)
-    FpsValue.BackgroundTransparency = 1
-    FpsValue.Font = Enum.Font.GothamBold
-    FpsValue.Text = "0"
-    FpsValue.TextColor3 = Theme.Accent
-    FpsValue.TextSize = 24
-    FpsValue.TextXAlignment = Enum.TextXAlignment.Left
-    table.insert(Library._elements, {obj = FpsValue, prop = "TextColor3", tKey = "Accent"})
-    
-    local FpsLabel = Instance.new("TextLabel", FpsPanel)
-    FpsLabel.Size = UDim2.new(0, 48, 1, 0)
-    FpsLabel.Position = UDim2.new(1, -58, 0, 0)
-    FpsLabel.BackgroundTransparency = 1
-    FpsLabel.Font = Enum.Font.GothamBold
-    FpsLabel.Text = "FPS"
-    FpsLabel.TextColor3 = Theme.TextDim
-    FpsLabel.TextSize = 12
-    table.insert(Library._elements, {obj = FpsLabel, prop = "TextColor3", tKey = "TextDim"})
-
-    local graphDragging, graphDragStart, graphStartPos = false, nil, nil
-    GraphPanel.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            graphDragging = true
-            graphDragStart = input.Position
-            graphStartPos = GraphPanel.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if graphDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - graphDragStart
-            GraphPanel.Position = UDim2.new(graphStartPos.X.Scale, graphStartPos.X.Offset + delta.X, graphStartPos.Y.Scale, graphStartPos.Y.Offset + delta.Y)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            graphDragging = false
-        end
-    end)
-
-    local fpsDragging, fpsDragStart, fpsStartPos = false, nil, nil
-    FpsPanel.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            fpsDragging = true
-            fpsDragStart = input.Position
-            fpsStartPos = FpsPanel.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if fpsDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - fpsDragStart
-            FpsPanel.Position = UDim2.new(fpsStartPos.X.Scale, fpsStartPos.X.Offset + delta.X, fpsStartPos.Y.Scale, fpsStartPos.Y.Offset + delta.Y)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            fpsDragging = false
-        end
-    end)
-
-    local frameCount, elapsed, updateElapsed = 0, 0, 0
-    local player = game:GetService("Players").LocalPlayer
-
-    RunService.RenderStepped:Connect(function(dt)
-        frameCount = frameCount + 1
-        elapsed = elapsed + dt
-        updateElapsed = updateElapsed + dt
-        
-        if elapsed >= 0.5 then
-            StatsOverlayState.fps = math.round(frameCount/elapsed)
-            frameCount = 0 
-            elapsed = 0
-            if FpsPanel.Visible then
-                FpsValue.Text = tostring(StatsOverlayState.fps)
-            end
-        end
-        
-        if updateElapsed >= 0.5 then
-            StatsOverlayState.ping = math.round(player:GetNetworkPing()*1000)
-            if GraphPanel.Visible then
-                PingValue.Text = tostring(StatsOverlayState.ping).." ms"
-                table.insert(StatsOverlayState.samples, StatsOverlayState.ping)
-                if #StatsOverlayState.samples > StatsOverlayState.maxSamples then 
-                    table.remove(StatsOverlayState.samples, 1) 
-                end
-                for index, bar in ipairs(Bars) do
-                    local sample = StatsOverlayState.samples[index] or 0
-                    local height = math.clamp(5 + sample/38, 5, 10)
-                    bar.Size = UDim2.new(0, 7, 0, height)
-                end
-            end
-            updateElapsed = 0
-        end
-    end)
-
-    settings_module:create_checkbox({
-        title = 'Show FPS',
-        flag = 'UI_Show_Fps',
-        callback = function(state)
-            FpsPanel.Visible = state
-        end,
-    })
-
-    settings_module:create_checkbox({
-        title = 'Show Ping',
-        flag = 'UI_Show_Ping',
-        callback = function(state)
-            GraphPanel.Visible = state
-        end,
-    })
-
-    local KeybindOverlayGui = Instance.new("ScreenGui")
-    KeybindOverlayGui.Name = "KeybindOverlay"
-    KeybindOverlayGui.ResetOnSpawn = false
-    KeybindOverlayGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    KeybindOverlayGui.IgnoreGuiInset = true
-    KeybindOverlayGui.Enabled = false
-    KeybindOverlayGui.Parent = CoreGui
-
-    local KeybindFrame = Instance.new("Frame")
-    KeybindFrame.Name = "OverlayFrame"
-    KeybindFrame.Size = UDim2.new(0, 220, 0, 38)
-    KeybindFrame.Position = UDim2.new(0, 20, 0.5, -19)
-    KeybindFrame.BackgroundColor3 = Theme.Group
-    KeybindFrame.BackgroundTransparency = 0.12
-    KeybindFrame.BorderSizePixel = 0
-    KeybindFrame.Parent = KeybindOverlayGui
-    table.insert(Library._elements, {obj = KeybindFrame, prop = "BackgroundColor3", tKey = "Group"})
-
-    local KFCorner = Instance.new("UICorner", KeybindFrame)
-    KFCorner.CornerRadius = UDim.new(0, 7)
-
-    local frameBorder = Instance.new("UIStroke")
-    frameBorder.Color = Theme.GroupStroke
-    frameBorder.Thickness = 1
-    frameBorder.Parent = KeybindFrame
-    table.insert(Library._elements, {obj = frameBorder, prop = "Color", tKey = "GroupStroke"})
-
-    local header = Instance.new("Frame")
-    header.Name = "Header"
-    header.Size = UDim2.new(1, 0, 0, 34)
-    header.Position = UDim2.new(0, 0, 0, 0)
-    header.BackgroundColor3 = Theme.Group
-    header.BorderSizePixel = 0
-    header.ZIndex = 2
-    header.Parent = KeybindFrame
-    table.insert(Library._elements, {obj = header, prop = "BackgroundColor3", tKey = "Group"})
-
-    local HCorner = Instance.new("UICorner", header)
-    HCorner.CornerRadius = UDim.new(0, 7)
-
-    local headerDivider = Instance.new("Frame")
-    headerDivider.Size = UDim2.new(1, 0, 0, 1)
-    headerDivider.Position = UDim2.new(0, 0, 1, -1)
-    headerDivider.BackgroundColor3 = Theme.GroupStroke
-    headerDivider.BorderSizePixel = 0
-    headerDivider.ZIndex = 3
-    headerDivider.Parent = header
-    table.insert(Library._elements, {obj = headerDivider, prop = "BackgroundColor3", tKey = "GroupStroke"})
-
-    local keyboardIcon = Instance.new("ImageLabel")
-    keyboardIcon.Size = UDim2.new(0, 16, 0, 16)
-    keyboardIcon.Position = UDim2.new(0, 10, 0.5, -8)
-    keyboardIcon.BackgroundTransparency = 1
-    keyboardIcon.Image = "rbxassetid://81598136527047"
-    keyboardIcon.ImageColor3 = Theme.Accent
-    keyboardIcon.ZIndex = 3
-    keyboardIcon.Parent = header
-    table.insert(Library._elements, {obj = keyboardIcon, prop = "ImageColor3", tKey = "Accent"})
-
-    local headerLabel = Instance.new("TextLabel")
-    headerLabel.Size = UDim2.new(1, -36, 1, 0)
-    headerLabel.Position = UDim2.new(0, 32, 0, 0)
-    headerLabel.BackgroundTransparency = 1
-    headerLabel.Text = "KEYBINDS"
-    headerLabel.TextColor3 = Theme.Accent
-    headerLabel.TextSize = 10
-    headerLabel.Font = Enum.Font.GothamBold
-    headerLabel.TextXAlignment = Enum.TextXAlignment.Left
-    headerLabel.ZIndex = 3
-    headerLabel.Parent = header
-    table.insert(Library._elements, {obj = headerLabel, prop = "TextColor3", tKey = "Accent"})
-
-    local dragging = false
-    local dragStart = nil
-    local startPos = nil
-
-    header.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = KeybindFrame.Position
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            KeybindFrame.Position = UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset + delta.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-
-    local lastBindCount = 0
-    local keybindUpdateTimer = 0
-
-    local function RefreshKeybindOverlay()
-        for _, child in ipairs(KeybindFrame:GetChildren()) do
-            if child.Name == "Row" or child.Name == "Divider" then child:Destroy() end
-        end
-        
-        local validBinds = {}
-        for flag, key in pairs(Library._config._keybinds) do
-            if flag ~= 'Minimize_Keybind' then
-                local title = Library._keybind_list[flag] or flag
-                table.insert(validBinds, {flag = flag, title = title, key = string.gsub(tostring(key), "Enum.KeyCode.", "")})
-            end
-        end
-        
-        table.sort(validBinds, function(a, b) return a.title < b.title end)
-        
-        local yBase = 38
-        for i, bind in ipairs(validBinds) do
-            if i > 1 then
-                local div = Instance.new("Frame")
-                div.Name = "Divider"
-                div.Size = UDim2.new(1, -20, 0, 1)
-                div.Position = UDim2.new(0, 10, 0, yBase)
-                div.BackgroundColor3 = Theme.GroupStroke
-                div.BorderSizePixel = 0
-                div.Parent = KeybindFrame
-                table.insert(Library._elements, {obj = div, prop = "BackgroundColor3", tKey = "GroupStroke"})
-            end
-            
-            local row = Instance.new("Frame")
-            row.Name = "Row"
-            row.Size = UDim2.new(1, -18, 0, 28)
-            row.Position = UDim2.new(0, 9, 0, yBase + 1)
-            row.BackgroundTransparency = 1
-            row.Parent = KeybindFrame
-            
-            local labelText = Instance.new("TextLabel")
-            labelText.Size = UDim2.new(1, -40, 1, 0)
-            labelText.Position = UDim2.new(0, 0, 0, 0)
-            labelText.BackgroundTransparency = 1
-            labelText.Text = bind.title
-            labelText.TextColor3 = Theme.TextDim
-            labelText.TextSize = 13
-            labelText.Font = Enum.Font.GothamSemibold
-            labelText.TextXAlignment = Enum.TextXAlignment.Left
-            labelText.Parent = row
-            table.insert(Library._elements, {obj = labelText, prop = "TextColor3", tKey = "TextDim"})
-            
-            local keyText = Instance.new("TextLabel")
-            keyText.Size = UDim2.new(0, 32, 1, 0)
-            keyText.Position = UDim2.new(1, -32, 0, 0)
-            keyText.BackgroundTransparency = 1
-            keyText.Text = "[" .. bind.key .. "]"
-            keyText.TextColor3 = Theme.Accent
-            keyText.TextSize = 12
-            keyText.Font = Enum.Font.GothamBold
-            keyText.TextXAlignment = Enum.TextXAlignment.Right
-            keyText.Parent = row
-            table.insert(Library._elements, {obj = keyText, prop = "TextColor3", tKey = "Accent"})
-            
-            yBase = yBase + 30
-        end
-        KeybindFrame.Size = UDim2.new(0, 220, 0, 38 + (#validBinds * 30))
-        lastBindCount = #validBinds
-    end
-
-    RunService.RenderStepped:Connect(function(dt)
-        if not KeybindOverlayGui.Enabled then return end
-        keybindUpdateTimer += dt
-        if keybindUpdateTimer >= 0.3 then
-            keybindUpdateTimer = 0
-            local currentCount = 0
-            for flag, key in pairs(Library._config._keybinds) do
-                if flag ~= 'Minimize_Keybind' then
-                    currentCount += 1
-                end
-            end
-            if currentCount ~= lastBindCount then
-                RefreshKeybindOverlay()
-            end
-        end
-    end)
-
-    settings_module:create_checkbox({
-        title = 'Keybinds List',
-        flag = 'UI_Show_Keybinds',
-        callback = function(state)
-            KeybindOverlayGui.Enabled = state
-            if state then
-                RefreshKeybindOverlay()
-            end
-        end,
-    })
 
     return InterfaceTab
 end
